@@ -1,0 +1,133 @@
+definitions:
+  dns.DNSEntry:
+    properties:
+      content:
+        type: string
+      domain:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      provider:
+        type: string
+      ttl:
+        type: integer
+      type:
+        type: string
+    type: object
+  dns.DNSRecord:
+    properties:
+      content:
+        type: string
+      name:
+        type: string
+      ttl:
+        type: integer
+      type:
+        type: string
+    type: object
+info:
+  contact:
+    email: ipedrazas@gmail.com
+    name: Ivan Pedrazas
+    url: http://localhost:8000
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+paths:
+  /dns/:zone/entries:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dns.DNSEntry'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: List DNS entries
+  /dns/:zone/records:
+    post:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dns.DNSRecord'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Create a DNS record
+  /dns/:zone/records/:id:
+    delete:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dns.DNSRecord'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Check if an IP is in use
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dns.DNSRecord'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Read a DNS record
+    put:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dns.DNSRecord'
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Update a DNS record
+  /healtz/ready:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Check if the service is ready
+swagger: "2.0"
