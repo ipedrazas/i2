@@ -72,7 +72,6 @@ func RunServer(port int, version string) {
 // @contact.name   Ivan Pedrazas
 // @contact.url    https://i2.alacasa.uk
 // @contact.email  ipedrazas@gmail.com
-
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
 func GinRouter(port int) *gin.Engine {
