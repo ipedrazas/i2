@@ -1,6 +1,6 @@
 # Ivan's Internal Platform API
 
-A Go-based API for managing Ivan's internal platform and Ivan's applications.
+A Go-based API for managing Ivan's internal platform and Ivan's applications... created using a variety of AI tools.
 
 ## Features
 
