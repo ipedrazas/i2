@@ -8,6 +8,11 @@ A Go-based API for managing Ivan's internal platform and Ivan's applications... 
 - CRUD operations for DNS records
 - Domain management
 - IP usage checking
+- Providers:
+  - Google Cloud
+  - Cloudflare
+  - AWS
+
 
 
 
@@ -21,10 +26,10 @@ go run main.go
 
 ## API Endpoints
 
-- `GET /domains/:domain/records/:id`: Read a DNS record
-- `PUT /domains/:domain/records/:id`: Update a DNS record
-- `DELETE /domains/:domain/records/:id`: Delete a DNS record
-- `GET /ip-usage/:ip`: Check IP usage
+- `GET /dns/:zone/records/:id`: Read a DNS record
+- `PUT /dns/:zone/records/:id`: Update a DNS record
+- `DELETE /dns/:zone/records/:id`: Delete a DNS record
+- `GET /dns/ip/:ip`: Returns the domains using an IP
 
 ## Contributing
 
