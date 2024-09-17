@@ -21,7 +21,7 @@ build:
 .PHONY: api
 api: build
 	@echo "Running api..."
-	@./dist/flex api
+	@./dist/i2
 
 .PHONY: install
 install: build

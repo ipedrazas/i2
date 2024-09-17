@@ -33,10 +33,11 @@ type DNSEntry struct {
 
 // DNSRecord represents the structure for creating or updating a DNS record
 type DNSRecord struct {
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	Content string `json:"content"`
-	TTL     int    `json:"ttl"`
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Content  string `json:"content"`
+	TTL      int    `json:"ttl"`
+	Provider string `json:"provider"`
 }
 
 // DNSService manages multiple DNS providers
@@ -58,23 +59,30 @@ func (s *DNSService) AddProvider(name string, provider DNSProvider) {
 // @Summary      List DNS entries
 // @Accept		 json
 // @Produce      json
+// @Param        provider  query  string  false  "Cloud Provider"
 // @Success      200  {object}  dns.DNSEntry
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/entries [get]
 func (s *DNSService) ListEntriesHandler(c *gin.Context) {
 	domain := c.Param("domain")
-
-	var allEntries []DNSEntry
-	for _, provider := range s.providers {
-		entries, err := provider.ListEntries(domain)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error listing entries: %v", err)})
-			return
-		}
-		allEntries = append(allEntries, entries...)
+	// read the provider from the query params
+	qprov := c.Query("provider")
+	if qprov == "" {
+		qprov = os.Getenv("DEFAULT_PROVIDER")
+	}
+	provider, ok := s.providers[qprov]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+		return
 	}
 
-	c.JSON(http.StatusOK, allEntries)
+	entries, err := provider.ListEntries(domain)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error listing entries: %v", err)})
+		return
+	}
+
+	c.JSON(http.StatusOK, entries)
 }
 
 // CreateRecordHandler godoc
@@ -93,13 +101,15 @@ func (s *DNSService) CreateRecordHandler(c *gin.Context) {
 		return
 	}
 
-	for _, provider := range s.providers {
-		err := provider.CreateRecord(domain, record)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error creating record: %v", err)})
-			return
-		}
-		break
+	provider, ok := s.providers[record.Provider]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+		return
+	}
+	err := provider.CreateRecord(domain, record)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Error creating record: %v", err)})
+		return
 	}
 
 	c.JSON(http.StatusCreated, gin.H{"message": "Record created successfully"})
@@ -109,19 +119,26 @@ func (s *DNSService) CreateRecordHandler(c *gin.Context) {
 // @Summary      Read a DNS record
 // @Accept		 json
 // @Produce      json
+// @Param        provider  query  string  false  "Cloud Provider"
 // @Success      200  {object}  dns.DNSRecord
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records/:id [get]
 func (s *DNSService) ReadRecordHandler(c *gin.Context) {
 	domain := c.Param("domain")
 	id := c.Param("id")
-
-	for _, provider := range s.providers {
-		record, err := provider.ReadRecord(domain, id)
-		if err == nil {
-			c.JSON(http.StatusOK, record)
-			return
-		}
+	qprov := c.Query("provider")
+	if qprov == "" {
+		qprov = os.Getenv("DEFAULT_PROVIDER")
+	}
+	provider, ok := s.providers[qprov]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+		return
+	}
+	record, err := provider.ReadRecord(domain, id)
+	if err == nil {
+		c.JSON(http.StatusOK, record)
+		return
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "Record not found"})
@@ -143,13 +160,15 @@ func (s *DNSService) UpdateRecordHandler(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error decoding request body: %v", err)})
 		return
 	}
-
-	for _, provider := range s.providers {
-		err := provider.UpdateRecord(domain, id, record)
-		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"message": "Record updated successfully"})
-			return
-		}
+	provider, ok := s.providers[record.Provider]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+		return
+	}
+	err := provider.UpdateRecord(domain, id, record)
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "Record updated successfully"})
+		return
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "Record not found or error updating record"})
@@ -159,19 +178,26 @@ func (s *DNSService) UpdateRecordHandler(c *gin.Context) {
 // @Summary      Delete a DNS record
 // @Accept		 json
 // @Produce      json
+// @Param        provider  query  string  false  "Cloud Provider"
 // @Success      200  {object}  dns.DNSRecord
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records/:id [delete]
 func (s *DNSService) DeleteRecordHandler(c *gin.Context) {
 	domain := c.Param("domain")
 	id := c.Param("id")
-
-	for _, provider := range s.providers {
-		err := provider.DeleteRecord(domain, id)
-		if err == nil {
-			c.JSON(http.StatusOK, gin.H{"message": "Record deleted successfully"})
-			return
-		}
+	qprov := c.Query("provider")
+	if qprov == "" {
+		qprov = os.Getenv("DEFAULT_PROVIDER")
+	}
+	provider, ok := s.providers[qprov]
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
+		return
+	}
+	err := provider.DeleteRecord(domain, id)
+	if err == nil {
+		c.JSON(http.StatusOK, gin.H{"message": "Record deleted successfully"})
+		return
 	}
 
 	c.JSON(http.StatusNotFound, gin.H{"error": "Record not found or error deleting record"})
@@ -202,7 +228,7 @@ func (s *DNSService) CheckIPUsageHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "IP is not in use"})
 }
 
-func (s *DNSService) setGCPProvider() {
+func (s *DNSService) SetGCPProvider() {
 	ctx := context.Background()
 	projectId := os.Getenv("GCP_PROJECT_ID")
 	credentialsPath := os.Getenv("GCP_CREDENTIALS_PATH")
@@ -214,7 +240,7 @@ func (s *DNSService) setGCPProvider() {
 	s.AddProvider("GCP", gcpProvider)
 }
 
-func (s *DNSService) setCloudflareProvider() {
+func (s *DNSService) SetCloudflareProvider() {
 	apiToken := os.Getenv("CF_API_TOKEN")
 	cloudflareProvider, err := NewCloudflareProvider(apiToken)
 

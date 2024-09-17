@@ -18,16 +18,7 @@ func AddRoutes(router *gin.Engine) {
 
 	// Define routes
 
-	service := dns.NewDNSService()
-
 	api := router.Group("/api/v1")
 	api.GET("/", info)
-	// /dns/:zone/entries?provider=gcp
-	api.GET("/dns/:zone/entries", service.ListEntriesHandler)
-	api.POST("/dns/:zone/records", service.CreateRecordHandler)
-	api.GET("/dns/:zone/records/:id", service.ReadRecordHandler)
-	api.PUT("/dns/:zone/records/:id", service.UpdateRecordHandler)
-	api.DELETE("/dns/:zone/records/:id", service.DeleteRecordHandler)
-	api.GET("/dns/ip/:ip", service.CheckIPUsageHandler)
-
+	dns.AddRoutes(api)
 }
