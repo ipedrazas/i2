@@ -109,15 +109,18 @@ func (c *Cluster) GetVMs(all bool) ([]Node, error) {
 			Uptime:  ParseUptime(vm.Uptime),
 			Running: vm.Status == "running",
 		}
-		if all {
-
-			VMs = append(VMs, node)
-		} else {
-			if node.Running {
-				node.IP = getIPs(vm)
-				VMs = append(VMs, node)
-			}
+		if node.Running {
+			node.IP = getIPs(vm)
 		}
+		VMs = append(VMs, node)
+		// if all {
+		// 	VMs = append(VMs, node)
+		// } else {
+		// 	if node.Running {
+		// 		node.IP = getIPs(vm)
+		// 		VMs = append(VMs, node)
+		// 	}
+		// }
 
 	}
 
@@ -165,11 +168,24 @@ func ParseUptime(uptime uint64) Uptime {
 
 func (c *Node) ToString() string {
 	if c.Running {
-		return fmt.Sprintf("%s - %s - %v - %s ", c.Name, c.Uptime.ToString(), c.Running, strings.Join(c.IP, ", "))
+		return fmt.Sprintf("%s - %s - %s ", c.Name, strings.Join(c.IP, ","), c.Uptime.ToString())
 	}
 	return fmt.Sprintf("%s - %v", c.Name, c.Running)
 }
 
 func (u *Uptime) ToString() string {
-	return fmt.Sprintf("%d days, %d hours, %d minutes, %d seconds", u.Days, u.Hours, u.Minutes, u.Seconds)
+	return fmt.Sprintf("%d days, %d h, %d ', %d ''", u.Days, u.Hours, u.Minutes, u.Seconds)
+}
+
+func (u *Uptime) ToStringShort() string {
+	if u.Days > 0 {
+		return fmt.Sprintf("%d days", u.Days)
+	}
+	if u.Hours > 0 {
+		return fmt.Sprintf("%d h", u.Hours)
+	}
+	if u.Minutes > 0 {
+		return fmt.Sprintf("%d min", u.Minutes)
+	}
+	return fmt.Sprintf("%d s", u.Seconds)
 }

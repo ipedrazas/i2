@@ -11,12 +11,12 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "contact": {
             "name": "Ivan Pedrazas",
-            "url": "http://localhost:8000",
+            "url": "https://i2.alacasa.uk",
             "email": "ipedrazas@gmail.com"
         },
         "license": {
-            "name": "Apache 2.0",
-            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
         },
         "version": "{{.Version}}"
     },
@@ -32,6 +32,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "List DNS entries",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cloud Provider",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -82,6 +90,14 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "summary": "Read a DNS record",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cloud Provider",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -121,6 +137,39 @@ const docTemplate = `{
                 }
             },
             "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Delete a DNS record",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cloud Provider",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/dns.DNSRecord"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/dns/ip/:ip": {
+            "get": {
                 "consumes": [
                     "application/json"
                 ],
@@ -204,6 +253,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "provider": {
                     "type": "string"
                 },
                 "ttl": {

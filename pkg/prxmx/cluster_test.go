@@ -68,7 +68,7 @@ func TestCluster_GetVMs(t *testing.T) {
 		want    int
 		wantErr bool
 	}{
-		{name: "test", want: 23, wantErr: false},
+		{name: "test", want: 24, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

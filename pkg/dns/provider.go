@@ -64,7 +64,7 @@ func (s *DNSService) AddProvider(name string, provider DNSProvider) {
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/entries [get]
 func (s *DNSService) ListEntriesHandler(c *gin.Context) {
-	domain := c.Param("domain")
+	domain := c.Param("zone")
 	// read the provider from the query params
 	qprov := c.Query("provider")
 	if qprov == "" {
@@ -93,7 +93,7 @@ func (s *DNSService) ListEntriesHandler(c *gin.Context) {
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records [post]
 func (s *DNSService) CreateRecordHandler(c *gin.Context) {
-	domain := c.Param("domain")
+	domain := c.Param("zone")
 
 	var record DNSRecord
 	if err := c.ShouldBindJSON(&record); err != nil {
@@ -124,7 +124,7 @@ func (s *DNSService) CreateRecordHandler(c *gin.Context) {
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records/:id [get]
 func (s *DNSService) ReadRecordHandler(c *gin.Context) {
-	domain := c.Param("domain")
+	domain := c.Param("zone")
 	id := c.Param("id")
 	qprov := c.Query("provider")
 	if qprov == "" {
@@ -152,7 +152,7 @@ func (s *DNSService) ReadRecordHandler(c *gin.Context) {
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records/:id [put]
 func (s *DNSService) UpdateRecordHandler(c *gin.Context) {
-	domain := c.Param("domain")
+	domain := c.Param("zone")
 	id := c.Param("id")
 
 	var record DNSRecord
@@ -183,7 +183,7 @@ func (s *DNSService) UpdateRecordHandler(c *gin.Context) {
 // @Failure      500  {object}	interface{}
 // @Router       /dns/:zone/records/:id [delete]
 func (s *DNSService) DeleteRecordHandler(c *gin.Context) {
-	domain := c.Param("domain")
+	domain := c.Param("zone")
 	id := c.Param("id")
 	qprov := c.Query("provider")
 	if qprov == "" {
@@ -209,7 +209,7 @@ func (s *DNSService) DeleteRecordHandler(c *gin.Context) {
 // @Produce      json
 // @Success      200  {object}  dns.DNSRecord
 // @Failure      500  {object}	interface{}
-// @Router       /dns/:zone/records/:id [delete]
+// @Router       /dns/ip/:ip [get]
 func (s *DNSService) CheckIPUsageHandler(c *gin.Context) {
 	ip := c.Param("ip")
 

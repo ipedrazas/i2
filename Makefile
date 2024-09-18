@@ -4,7 +4,7 @@ VERSION		?= v0.1.0
 GIT_REV    ?= $(shell git rev-parse --short HEAD)
 LDFLAGS		?= "-X '${PACKAGE}/pkg/api.Version=${VERSION}' -X '${PACKAGE}/pkg/api.BuildDate=`date +%FT%T%z`' -X '${PACKAGE}/pkg/api.GitCommit=${GIT_REV}'"
 REPO_NAME	:= ipedrazas
-BINARY_NAME := fl
+BINARY_NAME := i2
 
 .PHONY: test
 test:
@@ -42,15 +42,6 @@ docker:
 	@docker tag ${REPO_NAME}/${NAME}:${VERSION} ${REPO_NAME}/${NAME}:latest
 	@docker push ${REPO_NAME}/${NAME}:${VERSION}
 	@docker push ${REPO_NAME}/${NAME}:latest	
-
-.PHONY: dbc
-dbc:
-	@echo "docker buildx build --platform linux/amd64,linux/arm64 --builder cloud-docker-labs -t ${REPO_NAME}/${NAME}:${VERSION} --attest type=sbom,generator=docker/scout-sbom-indexer:latest . --push"
-	@docker buildx build --platform linux/amd64,linux/arm64 --builder cloud-docker-labs -t ${REPO_NAME}/${NAME}:${VERSION} \
-	--attest type=sbom,generator=docker/scout-sbom-indexer:latest . --push
-	@docker pull ${REPO_NAME}/${NAME}:${VERSION}
-	
-
 
 .PHONY: cover
 cover:
