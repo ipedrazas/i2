@@ -35,6 +35,7 @@ import (
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.design/x/clipboard"
 )
 
 var (
@@ -68,7 +69,12 @@ to quickly create a Cobra application.`,
 			// get the IP of the selected VM
 			tokens := strings.Split(selected, "192")
 			ip := "ssh ivan@192" + tokens[1]
-			fmt.Println(ip)
+			err := clipboard.Init()
+			if err != nil {
+				panic(err)
+			}
+			clipboard.Write(clipboard.FmtText, []byte(ip))
+			fmt.Println("ssh command copied to clipboard")
 		}
 	},
 }

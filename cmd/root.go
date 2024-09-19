@@ -81,10 +81,10 @@ func initConfig() {
 		cobra.CheckErr(err)
 
 		// Search config in home directory with name ".i2" (without extension).
-		viper.AddConfigPath(home)
+		viper.SetConfigName("config")
 		viper.AddConfigPath(home + "/.config/i2")
 		viper.SetConfigType("yaml")
-		viper.SetConfigName(".i2")
+
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match
