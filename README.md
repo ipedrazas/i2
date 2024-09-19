@@ -24,10 +24,15 @@ There are the main commands:
 - `i2 apps`: Manage applications
 - `i2 containers`: Manage containers
 - `i2 cp`: Copy files to and from containers and VMs
+- `i2 config`: config i2
+
+These are the commands in the backlog:
+
 - `i2 logs`: Manage logs
 - `i2 backups`: Manage backups
 - `i2 certs`: Manage certificates
 - `i2 ssh`: Manage SSH keys and connections
+
 
 ## API Endpoints
 
@@ -35,8 +40,8 @@ There are the main commands:
 - `PUT /dns/:zone/records/:id`: Update a DNS record
 - `DELETE /dns/:zone/records/:id`: Delete a DNS record
 - `GET /dns/ip/:ip`: Returns the domains using an IP
-- `POST /auth/login`: User login
-- `POST /auth/logout`: User logout
+- // `POST /auth/login`: User login
+- // `POST /auth/logout`: User logout
 - `GET /apps`: List all applications
 - `POST /apps`: Create a new application
 - `GET /apps/:id`: Get application details

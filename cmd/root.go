@@ -23,6 +23,8 @@ package cmd
 
 import (
 	"fmt"
+	"i2/cmd/app"
+	"i2/cmd/config"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -54,7 +56,10 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
+func addSubCommands() {
+	rootCmd.AddCommand(config.ConfigCmd)
+	rootCmd.AddCommand(app.AppCmd)
+}
 func init() {
 	cobra.OnInitialize(initConfig)
 
@@ -67,6 +72,7 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	addSubCommands()
 
 }
 

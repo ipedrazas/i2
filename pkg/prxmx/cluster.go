@@ -2,6 +2,7 @@ package prxmx
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -113,14 +114,6 @@ func (c *Cluster) GetVMs(all bool) ([]Node, error) {
 			node.IP = getIPs(vm)
 		}
 		VMs = append(VMs, node)
-		// if all {
-		// 	VMs = append(VMs, node)
-		// } else {
-		// 	if node.Running {
-		// 		node.IP = getIPs(vm)
-		// 		VMs = append(VMs, node)
-		// 	}
-		// }
 
 	}
 
@@ -188,4 +181,12 @@ func (u *Uptime) ToStringShort() string {
 		return fmt.Sprintf("%d min", u.Minutes)
 	}
 	return fmt.Sprintf("%d s", u.Seconds)
+}
+
+func (n *Node) ToBytes() []byte {
+	bresults, err := json.Marshal(n)
+	if err != nil {
+		return nil
+	}
+	return bresults
 }

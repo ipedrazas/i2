@@ -1,0 +1,77 @@
+x-logging: &logging
+  logging:
+    driver: loki
+    options:
+      loki-url: "https://loki.int.alacasa.uk/loki/api/v1/push"
+      loki-batch-size: "400"
+      loki-batch-wait: "5s"
+      loki-retries: "5"
+      
+
+services:
+  nats1:
+    image: nats:latest
+    container_name: nats1
+    ports:
+      - "4222:4222"
+      - "8222:8222"      
+    command:
+      - "--name=nats1"
+      - "--cluster_name=c1"
+      - "--cluster=nats://nats1:6222"
+      - "--routes=nats-route://nats1:6222,nats-route://nats2:6222,nats-route://nats3:6222"
+      - "--http_port=8222"
+      - "--js"
+      - "--sd=/data"
+      - "--user=$NATS_USER"
+      - "--pass=$NATS_PASSWORD"
+    volumes:
+      - i2nats1:/data
+    <<: *logging
+      
+
+  nats2:
+    image: docker.io/nats:latest
+    container_name: nats2
+    ports:
+      - "4223:4222"
+      - "8223:8222"
+    volumes:
+      - i2nats2:/data
+    command:
+      - "--name=nats2"
+      - "--cluster_name=c1"
+      - "--cluster=nats://nats2:6222"
+      - "--routes=nats-route://nats1:6222,nats-route://nats2:6222,nats-route://nats3:6222"
+      - "--http_port=8222"
+      - "--js"
+      - "--sd=/data"
+      - "--user=$NATS_USER"
+      - "--pass=$NATS_PASSWORD"
+    <<: *logging
+
+
+  nats3:
+    image: docker.io/nats:latest
+    container_name: nats3
+    ports:
+      - "4224:4222"
+      - "8224:8222"
+    volumes:
+      - i2nats3:/data
+    command:
+      - "--name=nats3"
+      - "--cluster_name=c1"
+      - "--cluster=nats://nats3:6222"
+      - "--routes=nats-route://nats1:6222,nats-route://nats2:6222,nats-route://nats3:6222"
+      - "--http_port=8222"
+      - "--js"
+      - "--sd=/data"
+      - "--user=$NATS_USER"
+      - "--pass=$NATS_PASSWORD"
+    <<: *logging
+
+volumes:
+  i2nats1:
+  i2nats2:
+  i2nats3:

@@ -22,8 +22,12 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"i2/pkg/prxmx"
+	"i2/pkg/store"
+	"i2/pkg/utils"
 	"log"
 	"os"
 	"strings"
@@ -31,6 +35,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
 	"github.com/spf13/cobra"
@@ -43,12 +48,70 @@ var (
 	asTable  bool
 	cluster  *prxmx.Cluster
 	selected string
+	sync     bool
+	vms      []prxmx.Node
 )
+
+type errMsg error
+
+type spinnerModel struct {
+	spinner  spinner.Model
+	quitting bool
+	err      error
+}
+
+func initialSpinnerModel() spinnerModel {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	return spinnerModel{spinner: s}
+}
+
+func (m spinnerModel) Init() tea.Cmd {
+	return m.spinner.Tick
+}
+
+func (m spinnerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if len(vms) > 0 {
+		m.quitting = true
+		return m, tea.Quit
+	}
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q", "esc", "ctrl+c":
+			m.quitting = true
+			return m, tea.Quit
+		default:
+			return m, nil
+		}
+
+	case errMsg:
+		m.err = msg
+		return m, nil
+
+	default:
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
+	}
+}
+
+func (m spinnerModel) View() string {
+	if m.err != nil {
+		return m.err.Error()
+	}
+	str := fmt.Sprintf("\n\n   %s Loading VMS...press q to quit\n\n", m.spinner.View())
+	if m.quitting {
+		return str + "\n"
+	}
+	return str
+}
 
 // vmsCmd represents the vms command
 var vmsCmd = &cobra.Command{
 	Use:   "vms",
-	Short: "A brief description of your command",
+	Short: "List all your ProxMox VMs",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -62,34 +125,114 @@ to quickly create a Cobra application.`,
 
 		cluster = prxmx.NewCluster(proxmoxURL, proxmoxUser, proxmoxPass)
 
-		if asTable {
-			getVMs()
-		} else {
-			getVMsList()
-			// get the IP of the selected VM
-			tokens := strings.Split(selected, "192")
-			ip := "ssh ivan@192" + tokens[1]
-			err := clipboard.Init()
-			if err != nil {
-				panic(err)
+		ctx := context.Background()
+		conf := getDefaultNatsConf()
+		st, err := store.NewStore(ctx, &conf)
+		if err != nil {
+			log.Fatalf("Error creating store: %v", err)
+		}
+		defer st.Close()
+		keys, _ := store.GetKeys(ctx, "i2", st.NatsConn)
+
+		if len(keys) == 0 {
+			fmt.Println("Fetching VMs from Proxmox")
+			go func() {
+				vms, err = cluster.GetVMs(all)
+				if err != nil {
+					log.Fatalf("Error getting VMs: %v", err)
+				}
+			}()
+
+			p := tea.NewProgram(initialSpinnerModel())
+			if _, err := p.Run(); err != nil {
+				fmt.Println("Error running spinner:", err)
 			}
-			clipboard.Write(clipboard.FmtText, []byte(ip))
-			fmt.Println("ssh command copied to clipboard")
+
+			if viper.GetBool("sync.enabled") || sync {
+				err = syncVMS(vms)
+				if err != nil {
+					log.Fatalf("Error syncing VMs: %v", err)
+				}
+			}
+		} else {
+			for _, key := range keys {
+				jvm, err := store.GetKV(ctx, key, "i2", st.NatsConn)
+				if err != nil {
+					log.Fatalf("Error getting VM: %v", err)
+				}
+				vm := prxmx.Node{}
+				err = json.Unmarshal(jvm, &vm)
+				if err != nil {
+					log.Fatalf("Error unmarshalling VM: %v", err)
+				}
+				vms = append(vms, vm)
+			}
+		}
+
+		if asTable {
+			getVMs(vms)
+		} else {
+			getVMsList(vms)
+			// get the IP of the selected VM
+			if selected != "" {
+				tokens := strings.Split(selected, "192")
+				ip := "ssh ivan@192" + tokens[1]
+				err := clipboard.Init()
+				if err != nil {
+					panic(err)
+				}
+				clipboard.Write(clipboard.FmtText, []byte(ip))
+				fmt.Println("ssh command copied to clipboard")
+			}
 		}
 	},
 }
 
-func getVMsList() {
-	vms, err := cluster.GetVMs(all)
-	if err != nil {
-		log.Fatalf("Error getting VMs: %v", err)
+func init() {
+	rootCmd.AddCommand(vmsCmd)
+
+	vmsCmd.Flags().BoolVarP(&all, "all", "a", false, "Return all VMs")
+	vmsCmd.Flags().BoolVarP(&asTable, "table", "t", false, "Return a table")
+	vmsCmd.Flags().BoolVarP(&sync, "sync", "s", false, "Sync VMs with NATS")
+}
+
+func getDefaultNatsConf() store.NatsConf {
+	return store.NatsConf{
+		Url:      viper.GetString("nats.url"),
+		User:     viper.GetString("nats.user"),
+		Password: viper.GetString("nats.password"),
+		Replicas: viper.GetInt("nats.replicas"),
+		Bucket:   viper.GetString("nats.bucket"),
+		Stream:   viper.GetString("nats.stream"),
 	}
+}
+
+func syncVMS(vms []prxmx.Node) error {
+	fmt.Println("Syncing VMs with NATS")
+	conf := getDefaultNatsConf()
+	ctx := context.Background()
+	st, err := store.NewStore(ctx, &conf)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+	for _, vm := range vms {
+		err = store.SetKV(ctx, vm.Name, conf.Bucket, vm.ToBytes(), st.NatsConn)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getVMsList(vms []prxmx.Node) {
+
 	items := []list.Item{}
 	running := 0
 	for _, vm := range vms {
 		if vm.Running {
 			running++
-			items = append(items, item{title: "🖥️    " + vm.Name + "   " + getLocalIP(vm.IP), description: "     " + vm.Uptime.ToStringShort()})
+			items = append(items, item{title: "🖥️    " + vm.Name + "   " + utils.GetLocalIP(vm.IP), description: "     " + vm.Uptime.ToStringShort()})
 		}
 	}
 	m := model{list: list.New(items, list.NewDefaultDelegate(), 0, 0)}
@@ -147,27 +290,7 @@ func (m model) View() string {
 	return docStyle.Render(m.list.View())
 }
 
-func init() {
-	rootCmd.AddCommand(vmsCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// vmsCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	vmsCmd.Flags().BoolVarP(&all, "all", "a", false, "Return all VMs")
-	vmsCmd.Flags().BoolVarP(&asTable, "table", "t", false, "Return a table")
-}
-
-func getVMs() {
-
-	vms, err := cluster.GetVMs(all)
-	if err != nil {
-		log.Fatalf("Error getting VMs: %v", err)
-	}
+func getVMs(vms []prxmx.Node) {
 
 	running := 0
 
@@ -190,8 +313,6 @@ func getVMs() {
 			switch {
 			case row == 0:
 				return headerStyle
-			// case row%2 == 0:
-			// 	return evenRowStyle
 			default:
 				return oddRowStyle
 			}
@@ -201,7 +322,7 @@ func getVMs() {
 	for _, vm := range vms {
 		if vm.Running {
 			running++
-			t.Row("🖥️  "+vm.Name, " "+getLocalIP(vm.IP), vm.Uptime.ToStringShort())
+			t.Row("🖥️  "+vm.Name, " "+utils.GetLocalIP(vm.IP), vm.Uptime.ToStringShort())
 		} else {
 			t.Row("💤  "+sleepingStyle.Render(vm.Name), " ", vm.Uptime.ToStringShort())
 		}
@@ -258,13 +379,4 @@ func getVMs() {
 
 	fmt.Println(docStyle.Render(doc.String()))
 
-}
-
-func getLocalIP(ips []string) string {
-	for _, ip := range ips {
-		if strings.HasPrefix(ip, "192.168") {
-			return ip
-		}
-	}
-	return ""
 }

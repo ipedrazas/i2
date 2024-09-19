@@ -19,7 +19,7 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package app
 
 import (
 	"fmt"
@@ -28,7 +28,7 @@ import (
 )
 
 // appCmd represents the app command
-var appCmd = &cobra.Command{
+var AppCmd = &cobra.Command{
 	Use:   "app",
 	Short: "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
@@ -43,7 +43,7 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
-	rootCmd.AddCommand(appCmd)
+	// rootCmd.AddCommand(appCmd)
 
 	// Here you will define your flags and configuration settings.
 

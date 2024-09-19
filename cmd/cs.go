@@ -22,9 +22,17 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"i2/pkg/dckr"
+	"i2/pkg/prxmx"
+	"i2/pkg/store"
+	"i2/pkg/utils"
+	"log"
+	"strings"
 
+	"github.com/docker/docker/api/types"
 	"github.com/spf13/cobra"
 )
 
@@ -59,12 +67,39 @@ func init() {
 	// is called directly, e.g.:
 	// csCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	csCmd.Flags().StringVarP(&sshHost, "ssh", "s", "", "SSH connection string")
+	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return all containers in all nodes")
 }
 
 func listContainers() {
 	var dc *dckr.DockerClient
 	var err error
+	if all {
+		doAll()
+		return
+	}
 	if sshHost != "" {
+		if !strings.HasPrefix(sshHost, "ssh://") {
+			// get host data from NATS
+			ctx := context.Background()
+			conf := getDefaultNatsConf()
+			st, err := store.NewStore(ctx, &conf)
+			if err != nil {
+				log.Fatalf("Error creating store: %v", err)
+			}
+			defer st.Close()
+
+			jvm, err := store.GetKV(ctx, sshHost, "i2", st.NatsConn)
+			if err != nil {
+				log.Fatalf("Error getting VM: %v", err)
+			}
+			vm := prxmx.Node{}
+			err = json.Unmarshal(jvm, &vm)
+			if err != nil {
+				log.Fatalf("Error unmarshalling VM: %v", err)
+			}
+			sshHost = "ssh://ivan@" + utils.GetLocalIP(vm.IP)
+
+		}
 		dc, err = dckr.NewDockerClientWithSSH(sshHost)
 		if err != nil {
 			fmt.Println("Error creating Docker client:", err)
@@ -77,14 +112,86 @@ func listContainers() {
 			return
 		}
 	}
+
 	defer dc.Close()
 	containers, err := dc.ListContainers()
 	if err != nil {
 		fmt.Println("Error listing containers:", err)
 		return
 	}
+	fmt.Println("Container ID \tName \t\tImage")
 	for _, container := range containers {
 		// Print container ID and name
-		fmt.Printf("Container ID: %s, Name: %s\n", container.ID, container.Names)
+		fmt.Printf("%s \t%s \t%s\n", container.ID[:12], container.Names[0][1:], container.Image)
+	}
+}
+
+func doAll() {
+	vms := []prxmx.Node{}
+	ctx := context.Background()
+	conf := getDefaultNatsConf()
+	st, err := store.NewStore(ctx, &conf)
+	if err != nil {
+		log.Fatalf("Error creating store: %v", err)
+	}
+	defer st.Close()
+	keys, _ := store.GetKeys(ctx, "i2", st.NatsConn)
+	for _, key := range keys {
+		jvm, err := store.GetKV(ctx, key, "i2", st.NatsConn)
+		if err != nil {
+			log.Fatalf("Error getting VM: %v", err)
+		}
+		vm := prxmx.Node{}
+		err = json.Unmarshal(jvm, &vm)
+		if err != nil {
+			log.Fatalf("Error unmarshalling VM: %v", err)
+		}
+		vms = append(vms, vm)
+	}
+	for _, vm := range vms {
+		if vm.Running {
+			containers := []types.Container{}
+			var err error
+
+			// get containers from NATS
+			cs, _ := store.GetKV(ctx, vm.Name, "containers", st.NatsConn)
+
+			if len(cs) > 0 {
+				err = json.Unmarshal(cs, &containers)
+				if err != nil {
+					log.Fatalf("Error unmarshalling containers: %v", err)
+				}
+			} else {
+				dc, err := dckr.NewDockerClientWithSSH("ssh://ivan@" + utils.GetLocalIP(vm.IP))
+				if err != nil {
+					log.Fatalf("Error creating Docker client: %v", err)
+				}
+				defer dc.Close()
+				containers, err = dc.ListContainers()
+				if err != nil {
+					log.Fatalf("Error listing containers: %v", err)
+				}
+			}
+
+			// containers = append(containers, dcContainers...)
+			fmt.Println("\n\n", vm.Name, utils.GetLocalIP(vm.IP))
+			fmt.Println("Container ID \tName \t\tImage")
+			for _, container := range containers {
+				fmt.Printf("%s \t%s \t%s\n", container.ID[:12], container.Names[0][1:], container.Image)
+
+				if len(cs) == 0 {
+					bcontainer, err := json.Marshal(container)
+					if err != nil {
+						log.Fatalf("Error marshalling container: %v", err)
+					}
+					// Print container ID and name
+
+					err = store.SetKV(ctx, vm.Name, "containers", bcontainer, st.NatsConn)
+					if err != nil {
+						log.Fatalf("Error storing container: %v", err)
+					}
+				}
+			}
+		}
 	}
 }

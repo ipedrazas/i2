@@ -19,19 +19,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 */
-package cmd
+package config
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 // setCmd represents the set command
-var setCmd = &cobra.Command{
-	Use:   "set",
-	Short: "A brief description of your command",
+var initCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialise i2 config with defaults",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -39,24 +37,18 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("set called")
-		key := args[0]
-		value := args[1]
-		viper.Set(key, value)
+
+		viper.Set("proxmox.url", "http://localhost:8006")
+		viper.Set("nats.url", "nats://localhost:4222")
+		viper.Set("nats.user", "nats")
+		viper.Set("nats.password", "Sup3rS3cr3t!")
+		viper.Set("nats.bucket", "i2")
+		viper.Set("nats.stream", "i2")
+		viper.Set("nats.replicas", 1)
 		viper.WriteConfig()
 	},
 }
 
 func init() {
-	configCmd.AddCommand(setCmd)
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// setCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// setCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
