@@ -69,7 +69,7 @@ func SetKV(ctx context.Context, key, bucket string, value []byte, nc *nats.Conn)
 	}
 	metadataKVStore, err := js.CreateOrUpdateKeyValue(ctx, jetstream.KeyValueConfig{
 		Bucket: bucket,
-		TTL:    time.Minute * 10,
+		TTL:    time.Minute * 30,
 	})
 
 	if err != nil {

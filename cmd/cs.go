@@ -30,13 +30,21 @@ import (
 	"i2/pkg/store"
 	"i2/pkg/utils"
 	"log"
+	"os"
 	"strings"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/lipgloss/table"
 	"github.com/docker/docker/api/types"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
-var sshHost string
+var (
+	sshHost          string
+	bucketVMS        string
+	bucketContainers string
+)
 
 // csCmd represents the cs command
 var csCmd = &cobra.Command{
@@ -56,18 +64,11 @@ to quickly create a Cobra application.`,
 
 func init() {
 	rootCmd.AddCommand(csCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// csCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// csCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	csCmd.Flags().StringVarP(&sshHost, "ssh", "s", "", "SSH connection string")
 	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return all containers in all nodes")
+	bucket := viper.GetString("nats.bucket")
+	bucketVMS = bucket + "-vms"
+	bucketContainers = bucket + "-containers"
 }
 
 func listContainers() {
@@ -77,6 +78,7 @@ func listContainers() {
 		doAll()
 		return
 	}
+
 	if sshHost != "" {
 		if !strings.HasPrefix(sshHost, "ssh://") {
 			// get host data from NATS
@@ -88,7 +90,7 @@ func listContainers() {
 			}
 			defer st.Close()
 
-			jvm, err := store.GetKV(ctx, sshHost, "i2", st.NatsConn)
+			jvm, err := store.GetKV(ctx, sshHost, bucketVMS, st.NatsConn)
 			if err != nil {
 				log.Fatalf("Error getting VM: %v", err)
 			}
@@ -135,9 +137,9 @@ func doAll() {
 		log.Fatalf("Error creating store: %v", err)
 	}
 	defer st.Close()
-	keys, _ := store.GetKeys(ctx, "i2", st.NatsConn)
+	keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
 	for _, key := range keys {
-		jvm, err := store.GetKV(ctx, key, "i2", st.NatsConn)
+		jvm, err := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
 		if err != nil {
 			log.Fatalf("Error getting VM: %v", err)
 		}
@@ -154,7 +156,7 @@ func doAll() {
 			var err error
 
 			// get containers from NATS
-			cs, _ := store.GetKV(ctx, vm.Name, "containers", st.NatsConn)
+			cs, _ := store.GetKV(ctx, vm.Name, bucketContainers, st.NatsConn)
 
 			if len(cs) > 0 {
 				err = json.Unmarshal(cs, &containers)
@@ -162,36 +164,82 @@ func doAll() {
 					log.Fatalf("Error unmarshalling containers: %v", err)
 				}
 			} else {
-				dc, err := dckr.NewDockerClientWithSSH("ssh://ivan@" + utils.GetLocalIP(vm.IP))
-				if err != nil {
-					log.Fatalf("Error creating Docker client: %v", err)
-				}
-				defer dc.Close()
-				containers, err = dc.ListContainers()
+				containers, err = getRemoteContainers(vm)
 				if err != nil {
 					log.Fatalf("Error listing containers: %v", err)
 				}
 			}
 
-			// containers = append(containers, dcContainers...)
-			fmt.Println("\n\n", vm.Name, utils.GetLocalIP(vm.IP))
-			fmt.Println("Container ID \tName \t\tImage")
-			for _, container := range containers {
-				fmt.Printf("%s \t%s \t%s\n", container.ID[:12], container.Names[0][1:], container.Image)
-
-				if len(cs) == 0 {
-					bcontainer, err := json.Marshal(container)
-					if err != nil {
-						log.Fatalf("Error marshalling container: %v", err)
-					}
-					// Print container ID and name
-
-					err = store.SetKV(ctx, vm.Name, "containers", bcontainer, st.NatsConn)
-					if err != nil {
-						log.Fatalf("Error storing container: %v", err)
-					}
-				}
+			printContainers(vm, containers)
+			if len(cs) == 0 {
+				saveContainers(ctx, vm, containers, st)
 			}
 		}
 	}
+}
+
+func getRemoteContainers(vm prxmx.Node) ([]types.Container, error) {
+	dc, err := dckr.NewDockerClientWithSSH("ssh://ivan@" + utils.GetLocalIP(vm.IP))
+	if err != nil {
+		log.Fatalf("Error creating Docker client: %v", err)
+	}
+	defer dc.Close()
+	return dc.ListContainers()
+}
+
+func saveContainers(ctx context.Context, vm prxmx.Node, containers []types.Container, st *store.Store) {
+	bcontainers, err := json.Marshal(containers)
+	if err != nil {
+		log.Fatalf("Error marshalling container: %v", err)
+	}
+	// Print container ID and name
+
+	err = store.SetKV(ctx, vm.Name, bucketContainers, bcontainers, st.NatsConn)
+	if err != nil {
+		log.Fatalf("Error storing container: %v", err)
+	}
+}
+
+func printContainers(vm prxmx.Node, containers []types.Container) {
+
+	re := lipgloss.NewRenderer(os.Stdout)
+	baseStyle := re.NewStyle().Padding(0, 1)
+	headerStyle := baseStyle.Foreground(lipgloss.Color("252")).Bold(true)
+	rowStyle := baseStyle.Foreground(lipgloss.Color("250"))
+
+	var styleTop = lipgloss.NewStyle().
+		Bold(true).
+		MarginTop(1).
+		PaddingTop(1).
+		PaddingLeft(2).
+		Foreground(lipgloss.Color("#c6a0f1")).
+		Background(lipgloss.Color("#190e27")).
+		Width(120)
+	stop := styleTop.Render("VM: " + vm.Name + "\t\tIP: " + utils.GetLocalIP(vm.IP))
+
+	t := table.New().
+		Border(lipgloss.NormalBorder()).
+		BorderStyle(lipgloss.NewStyle().Foreground(lipgloss.Color("99"))).
+		StyleFunc(func(row, col int) lipgloss.Style {
+			switch {
+			case row == 0:
+				return headerStyle
+			default:
+				return rowStyle
+			}
+		}).
+		Headers("ID", "Name", "Image", "Ports").Width(120)
+
+	for _, container := range containers {
+		t.Row(container.ID[:12], container.Names[0][1:], container.Image, dckr.PortsAsString(container.Ports))
+	}
+
+	group := lipgloss.JoinVertical(
+		lipgloss.Left,
+		stop,
+		t.Render(),
+	)
+
+	fmt.Println(group)
+
 }

@@ -132,7 +132,7 @@ to quickly create a Cobra application.`,
 			log.Fatalf("Error creating store: %v", err)
 		}
 		defer st.Close()
-		keys, _ := store.GetKeys(ctx, "i2", st.NatsConn)
+		keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
 
 		if len(keys) == 0 {
 			fmt.Println("Fetching VMs from Proxmox")
@@ -156,7 +156,7 @@ to quickly create a Cobra application.`,
 			}
 		} else {
 			for _, key := range keys {
-				jvm, err := store.GetKV(ctx, key, "i2", st.NatsConn)
+				jvm, err := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
 				if err != nil {
 					log.Fatalf("Error getting VM: %v", err)
 				}
@@ -217,7 +217,7 @@ func syncVMS(vms []prxmx.Node) error {
 	}
 	defer st.Close()
 	for _, vm := range vms {
-		err = store.SetKV(ctx, vm.Name, conf.Bucket, vm.ToBytes(), st.NatsConn)
+		err = store.SetKV(ctx, vm.Name, bucketVMS, vm.ToBytes(), st.NatsConn)
 		if err != nil {
 			return err
 		}

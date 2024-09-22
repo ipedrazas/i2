@@ -1,6 +1,6 @@
 NAME		:= i2
-PACKAGE    	:= github.com/ipedrazas/$(NAME)
-VERSION		?= v0.1.0
+PACKAGE    	:= $(NAME)
+VERSION		?= v0.1.1
 GIT_REV    ?= $(shell git rev-parse --short HEAD)
 LDFLAGS		?= "-X '${PACKAGE}/pkg/api.Version=${VERSION}' -X '${PACKAGE}/pkg/api.BuildDate=`date +%FT%T%z`' -X '${PACKAGE}/pkg/api.GitCommit=${GIT_REV}'"
 REPO_NAME	:= ipedrazas
