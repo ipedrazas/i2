@@ -92,7 +92,7 @@ func (c *Cluster) getVirtualMachines() ([]*proxmox.VirtualMachine, error) {
 	}
 	return VMs, nil
 }
-func (c *Cluster) GetVMs(all bool) ([]Node, error) {
+func (c *Cluster) GetVMs() ([]Node, error) {
 
 	VMs := []Node{}
 

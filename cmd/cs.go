@@ -41,6 +41,7 @@ import (
 )
 
 var (
+	all              bool
 	sshHost          string
 	bucketVMS        string
 	bucketContainers string
@@ -58,6 +59,9 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		bucket := viper.GetString("nats.bucket")
+		bucketVMS = bucket + "-vms"
+		bucketContainers = bucket + "-containers"
 		listContainers()
 	},
 }
@@ -65,10 +69,8 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(csCmd)
 	csCmd.Flags().StringVarP(&sshHost, "ssh", "s", "", "SSH connection string")
-	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return all containers in all nodes")
-	bucket := viper.GetString("nats.bucket")
-	bucketVMS = bucket + "-vms"
-	bucketContainers = bucket + "-containers"
+	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return containers in all nodes")
+
 }
 
 func listContainers() {

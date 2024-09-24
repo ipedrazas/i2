@@ -44,7 +44,6 @@ import (
 )
 
 var (
-	all      bool
 	asTable  bool
 	cluster  *prxmx.Cluster
 	selected string
@@ -119,6 +118,10 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		bucket := viper.GetString("nats.bucket")
+		bucketVMS = bucket + "-vms"
+		bucketContainers = bucket + "-containers"
+
 		proxmoxURL := viper.GetString("proxmox.url")
 		proxmoxUser := viper.GetString("proxmox.user")
 		proxmoxPass := viper.GetString("proxmox.pass")
@@ -132,12 +135,26 @@ to quickly create a Cobra application.`,
 			log.Fatalf("Error creating store: %v", err)
 		}
 		defer st.Close()
+
+		if sync {
+			fmt.Println("Fetching VMs from Proxmox")
+			vms, err = cluster.GetVMs()
+			if err != nil {
+				log.Fatalf("Error getting VMs: %v", err)
+			}
+			fmt.Printf("%d VMs found\n", len(vms))
+			err = syncVMS(vms)
+			if err != nil {
+				log.Fatalf("Error syncing VMs: %v", err)
+			}
+			return
+		}
 		keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
 
 		if len(keys) == 0 {
 			fmt.Println("Fetching VMs from Proxmox")
 			go func() {
-				vms, err = cluster.GetVMs(all)
+				vms, err = cluster.GetVMs()
 				if err != nil {
 					log.Fatalf("Error getting VMs: %v", err)
 				}
@@ -191,7 +208,6 @@ to quickly create a Cobra application.`,
 func init() {
 	rootCmd.AddCommand(vmsCmd)
 
-	vmsCmd.Flags().BoolVarP(&all, "all", "a", false, "Return all VMs")
 	vmsCmd.Flags().BoolVarP(&asTable, "table", "t", false, "Return a table")
 	vmsCmd.Flags().BoolVarP(&sync, "sync", "s", false, "Sync VMs with NATS")
 }
@@ -208,7 +224,7 @@ func getDefaultNatsConf() store.NatsConf {
 }
 
 func syncVMS(vms []prxmx.Node) error {
-	fmt.Println("Syncing VMs with NATS")
+	fmt.Println("Syncing VMs with NATS", bucketVMS)
 	conf := getDefaultNatsConf()
 	ctx := context.Background()
 	st, err := store.NewStore(ctx, &conf)

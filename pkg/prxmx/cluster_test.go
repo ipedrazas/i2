@@ -73,7 +73,7 @@ func TestCluster_GetVMs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			got, err := cluster.GetVMs(false)
+			got, err := cluster.GetVMs()
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Cluster.GetVMs() error = %v, wantErr %v", err, tt.wantErr)

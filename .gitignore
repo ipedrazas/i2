@@ -52,3 +52,5 @@ go.work
 
 dist/
 vendor/
+docker/config.yaml
+.vscode

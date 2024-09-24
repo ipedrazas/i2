@@ -1,9 +1,9 @@
 NAME		:= i2
 PACKAGE    	:= $(NAME)
-VERSION		?= v0.1.1
+VERSION		?= v0.1.2
 GIT_REV    ?= $(shell git rev-parse --short HEAD)
 LDFLAGS		?= "-X '${PACKAGE}/pkg/api.Version=${VERSION}' -X '${PACKAGE}/pkg/api.BuildDate=`date +%FT%T%z`' -X '${PACKAGE}/pkg/api.GitCommit=${GIT_REV}'"
-REPO_NAME	:= ipedrazas
+REPO_NAME	:= harbor.alacasa.uk/library
 BINARY_NAME := i2
 
 .PHONY: test
@@ -38,7 +38,7 @@ dist:
 .PHONY: docker
 docker:
 	@echo "docker build -t ${REPO_NAME}/${NAME}:${VERSION}"
-	@docker build --platform linux/amd64,linux/arm64 --build-arg TAG=$(VERSION) -t ${REPO_NAME}/${NAME}:${VERSION} . 
+	@docker build --platform linux/amd64,linux/arm64 --build-arg TAG=$(VERSION) -t ${REPO_NAME}/${NAME}:${VERSION} .
 	@docker tag ${REPO_NAME}/${NAME}:${VERSION} ${REPO_NAME}/${NAME}:latest
 	@docker push ${REPO_NAME}/${NAME}:${VERSION}
 	@docker push ${REPO_NAME}/${NAME}:latest	
@@ -58,3 +58,15 @@ tidy:
 gen-docs:
 	@echo "Generating docs..."
 	@swag init -g pkg/api/api.go -o pkg/docs
+
+.PHONY: cron
+cron:
+	@echo "Running cron..."
+	@docker run -d --rm \
+    -v /var/run/docker.sock:/var/run/docker.sock:ro \
+    --label ofelia.enabled=true \
+    --label ofelia.job-run.i2-sync-vms.schedule="@every 15m" \
+    --label ofelia.job-run.i2-sync-vms.image="harbor.alacasa.uk/library/i2:v0.1.2" \
+    --label ofelia.job-run.i2-sync-vms.volume="./docker/config.yaml:/i2/config.yaml:rw" \
+    --label ofelia.job-run.i2-sync-vms.command="vms -s" \
+        mcuadros/ofelia:latest daemon --docker 
