@@ -11,7 +11,6 @@ import (
 	"github.com/docker/cli/cli/context/store"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	// Add this new import
 )
 
 type DockerClient struct {
@@ -47,16 +46,14 @@ func NewDockerClient() (*DockerClient, error) {
 	}, nil
 }
 
-func NewDockerClientWithSSH(ssh string) (*DockerClient, error) {
-	helper, err := connhelper.GetConnectionHelper(ssh)
+func NewDockerClientWithSSH(sshAddr string) (*DockerClient, error) {
 
+	helper, err := connhelper.GetConnectionHelper(sshAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create SSH Docker client: %w", err)
+		return nil, fmt.Errorf("failed to create SSH connection helper: %w", err)
 	}
 
 	httpClient := &http.Client{
-		// No tls
-		// No proxy
 		Transport: &http.Transport{
 			DialContext: helper.Dialer,
 		},

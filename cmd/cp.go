@@ -84,9 +84,8 @@ func parseScpHost() (string, string, string) {
 
 func copyFileRemote() error {
 	pkp := viper.GetString("ssh.privateKeyPath")
-	if scpHost != "" {
-		remoteUser, sshHost, remoteDir = parseScpHost()
-	}
+	remoteUser, sshHost, remoteDir := parseScpHost()
+
 	return dfiles.SCPTransfer(filePath, remoteUser, sshHost, remoteDir, pkp)
 }
 

@@ -30,7 +30,7 @@ type Store struct {
 func NewStore(ctx context.Context, nconf *NatsConf) (*Store, error) {
 	conn, err := Connect(nconf)
 	if err != nil {
-		log.Errorf("error connecting to nats: %s", err)
+		log.Errorf("error connecting to nats: %s, %v", nconf.Url, err)
 		return nil, err
 	}
 	return &Store{

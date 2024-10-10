@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,7 +13,9 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/swaggo/swag/example/basic/docs"
+
+	"i2/pkg/docs"
+	"i2/pkg/types"
 
 	logger "github.com/charmbracelet/log"
 )
@@ -29,9 +32,9 @@ var (
 	})
 )
 
-func RunServer(port int, version string) {
-	addr := fmt.Sprintf(":%d", port)
-	router := GinRouter(port)
+func RunServer(conf *types.Config) {
+	addr := fmt.Sprintf(":%d", conf.Api.Port)
+	router := GinRouter(conf)
 	server := &http.Server{
 		Addr:           addr,
 		Handler:        router,
@@ -39,7 +42,7 @@ func RunServer(port int, version string) {
 		WriteTimeout:   30 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	Version = version
+
 	log.Infof("Starting server on %s", addr)
 
 	go func() {
@@ -74,12 +77,11 @@ func RunServer(port int, version string) {
 // @contact.email  ipedrazas@gmail.com
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
-func GinRouter(port int) *gin.Engine {
+func GinRouter(conf *types.Config) *gin.Engine {
 	docs.SwaggerInfo.Title = "Ivan's Internal Platform API"
 	docs.SwaggerInfo.Description = "API to create, run and manage Applications."
-	docs.SwaggerInfo.Version = "0.1.0"
-	addr := fmt.Sprintf("localhost:%d", port)
-	docs.SwaggerInfo.Host = addr
+	docs.SwaggerInfo.Version = "v0.1.2"
+	docs.SwaggerInfo.Host = "https://i2.alacasa.uk"
 	docs.SwaggerInfo.BasePath = "/api/v1"
 	docs.SwaggerInfo.Schemes = []string{"http", "https"}
 	router := gin.New()
@@ -121,20 +123,23 @@ func GinRouter(port int) *gin.Engine {
 		}
 		return url
 	}
-	metricUrl := fmt.Sprintf("http://localhost:%d/metrics", port)
-	pushGWUrl := os.Getenv("PUSHGATEWAY_URL")
-	pushIntervalStr := os.Getenv("PUSHGATEWAY_INTERVAL")
-	pushInterval, err := time.ParseDuration(pushIntervalStr)
-	if err != nil {
-		pushInterval = time.Duration(180)
+	metricURL := conf.Api.PublicUrl
+	if metricURL == "" {
+		metricURL = fmt.Sprintf("%s://%s:%d", conf.Api.Scheme, conf.Api.Host, conf.Api.Port)
 	}
-	prom.SetPushGateway(pushGWUrl, metricUrl, pushInterval)
+	metricURL = strings.TrimSuffix(metricURL, "/") + "/metrics"
+	pushGWUrl := conf.PushGateway.URL
+	pushInterval := conf.PushGateway.PushInterval
+
+	if pushGWUrl != "" {
+		prom.SetPushGateway(pushGWUrl, metricURL, pushInterval)
+	}
 	prom.Use(router)
 
 	// Recovery middleware recovers from any panics and writes a 500 if there was one.
 	router.Use(gin.Recovery())
 	// router.Use(gin.Logger())
-	AddRoutes(router)
+	AddRoutes(router, conf)
 
 	return router
 }

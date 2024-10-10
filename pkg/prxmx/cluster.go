@@ -2,8 +2,10 @@ package prxmx
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/luthermonson/go-proxmox"
@@ -41,13 +43,14 @@ func NewProxmoxClient(apiURL, user, pass string) *proxmox.Client {
 }
 
 func NewCluster(apiURL, user, pass string) *Cluster {
-	// credentials := proxmox.Credentials{
-	// 	Username: user,
-	// 	Password: pass,
-	// }
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
 	client := proxmox.NewClient(apiURL,
-		// proxmox.WithCredentials(&credentials),
 		proxmox.WithAPIToken(user, pass),
+		proxmox.WithHTTPClient(httpClient),
 	)
 	return &Cluster{
 		ApiURL: apiURL,
@@ -74,6 +77,7 @@ func (c *Cluster) getVirtualMachines() ([]*proxmox.VirtualMachine, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	VMs := []*proxmox.VirtualMachine{}
 	ctx := context.Background()
 
@@ -92,6 +96,7 @@ func (c *Cluster) getVirtualMachines() ([]*proxmox.VirtualMachine, error) {
 	}
 	return VMs, nil
 }
+
 func (c *Cluster) GetVMs() ([]Node, error) {
 
 	VMs := []Node{}

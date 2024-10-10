@@ -28,7 +28,7 @@ import (
 	"i2/pkg/prxmx"
 	"i2/pkg/store"
 	"i2/pkg/utils"
-	"log"
+
 	"os"
 	"strings"
 
@@ -38,6 +38,7 @@ import (
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.design/x/clipboard"
@@ -132,55 +133,55 @@ to quickly create a Cobra application.`,
 		conf := getDefaultNatsConf()
 		st, err := store.NewStore(ctx, &conf)
 		if err != nil {
-			log.Fatalf("Error creating store: %v", err)
+			log.Errorf("Error creating store: %v", err)
 		}
 		defer st.Close()
 
 		if sync {
-			fmt.Println("Fetching VMs from Proxmox")
+			log.Info("Fetching VMs from Proxmox")
 			vms, err = cluster.GetVMs()
 			if err != nil {
-				log.Fatalf("Error getting VMs: %v", err)
+				log.Errorf("Error getting VMs: %v", err)
 			}
-			fmt.Printf("%d VMs found\n", len(vms))
+			log.Info("%d VMs found\n", len(vms))
 			err = syncVMS(vms)
 			if err != nil {
-				log.Fatalf("Error syncing VMs: %v", err)
+				log.Errorf("Error syncing VMs: %v", err)
 			}
 			return
 		}
 		keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
 
 		if len(keys) == 0 {
-			fmt.Println("Fetching VMs from Proxmox")
+			log.Info("Fetching VMs from Proxmox")
 			go func() {
 				vms, err = cluster.GetVMs()
 				if err != nil {
-					log.Fatalf("Error getting VMs: %v", err)
+					log.Errorf("Error getting VMs: %v", err)
 				}
 			}()
 
 			p := tea.NewProgram(initialSpinnerModel())
 			if _, err := p.Run(); err != nil {
-				fmt.Println("Error running spinner:", err)
+				log.Errorf("Error running spinner: %v", err)
 			}
 
 			if viper.GetBool("sync.enabled") || sync {
 				err = syncVMS(vms)
 				if err != nil {
-					log.Fatalf("Error syncing VMs: %v", err)
+					log.Errorf("Error syncing VMs: %v", err)
 				}
 			}
 		} else {
 			for _, key := range keys {
 				jvm, err := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
 				if err != nil {
-					log.Fatalf("Error getting VM: %v", err)
+					log.Errorf("Error getting VM: %v", err)
 				}
 				vm := prxmx.Node{}
 				err = json.Unmarshal(jvm, &vm)
 				if err != nil {
-					log.Fatalf("Error unmarshalling VM: %v", err)
+					log.Errorf("Error unmarshalling VM: %v", err)
 				}
 				vms = append(vms, vm)
 			}
@@ -199,7 +200,7 @@ to quickly create a Cobra application.`,
 					panic(err)
 				}
 				clipboard.Write(clipboard.FmtText, []byte(ip))
-				fmt.Println("ssh command copied to clipboard")
+				log.Info("ssh command copied to clipboard")
 			}
 		}
 	},
@@ -224,7 +225,7 @@ func getDefaultNatsConf() store.NatsConf {
 }
 
 func syncVMS(vms []prxmx.Node) error {
-	fmt.Println("Syncing VMs with NATS", bucketVMS)
+	log.Info("Syncing VMs with NATS", bucketVMS)
 	conf := getDefaultNatsConf()
 	ctx := context.Background()
 	st, err := store.NewStore(ctx, &conf)
@@ -257,7 +258,7 @@ func getVMsList(vms []prxmx.Node) {
 	p := tea.NewProgram(m, tea.WithAltScreen())
 
 	if _, err := p.Run(); err != nil {
-		fmt.Println("Error running program:", err)
+		log.Error("Error running program:", err)
 		os.Exit(1)
 	}
 }

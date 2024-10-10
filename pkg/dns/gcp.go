@@ -45,7 +45,7 @@ func (p *GCPProvider) ListEntries(domain string) ([]DNSEntry, error) {
 			Name:     record.Name,
 			Content:  record.Rrdatas[0],
 			TTL:      int(record.Ttl),
-			Provider: "GCP",
+			Provider: "gcp",
 		})
 	}
 

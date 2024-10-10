@@ -54,3 +54,4 @@ dist/
 vendor/
 docker/config.yaml
 .vscode
+docker/id_rsa

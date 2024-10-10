@@ -206,6 +206,70 @@
                     }
                 }
             }
+        },
+        "/proxmox/nodes": {
+            "get": {
+                "description": "Get cluster nodes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prxmx"
+                ],
+                "summary": "Get cluster nodes",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
+        },
+        "/proxmox/vms": {
+            "get": {
+                "description": "Get virtual machines",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "prxmx"
+                ],
+                "summary": "Get virtual machines",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/prxmx.Node"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -252,6 +316,46 @@
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "prxmx.Node": {
+            "type": "object",
+            "properties": {
+                "ip": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "running": {
+                    "type": "boolean"
+                },
+                "uptime": {
+                    "$ref": "#/definitions/prxmx.Uptime"
+                }
+            }
+        },
+        "prxmx.Uptime": {
+            "type": "object",
+            "properties": {
+                "days": {
+                    "type": "integer"
+                },
+                "hours": {
+                    "type": "integer"
+                },
+                "minutes": {
+                    "type": "integer"
+                },
+                "raw": {
+                    "type": "integer"
+                },
+                "seconds": {
+                    "type": "integer"
                 }
             }
         }

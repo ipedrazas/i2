@@ -22,8 +22,7 @@ THE SOFTWARE.
 package config
 
 import (
-	"fmt"
-
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -41,7 +40,7 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		keys := viper.AllKeys()
 		for _, key := range keys {
-			fmt.Println(key, ":", viper.Get(key))
+			log.Info(key, ":", viper.Get(key))
 		}
 	},
 }

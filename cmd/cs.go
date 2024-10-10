@@ -25,13 +25,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
 	"i2/pkg/dckr"
 	"i2/pkg/prxmx"
 	"i2/pkg/store"
 	"i2/pkg/utils"
-	"log"
 	"os"
+	"strconv"
 	"strings"
+	"time"
+
+	"github.com/charmbracelet/log"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/lipgloss/table"
@@ -42,9 +46,10 @@ import (
 
 var (
 	all              bool
-	sshHost          string
 	bucketVMS        string
 	bucketContainers string
+	user             string
+	print            bool
 )
 
 // csCmd represents the cs command
@@ -62,131 +67,145 @@ to quickly create a Cobra application.`,
 		bucket := viper.GetString("nats.bucket")
 		bucketVMS = bucket + "-vms"
 		bucketContainers = bucket + "-containers"
-		listContainers()
+		user = viper.GetString("ssh.user")
+
+		// get host data from NATS
+		ctx := context.Background()
+		conf := getDefaultNatsConf()
+		if conf.Url == "" {
+			log.Fatalf("NATS_URL is not set")
+		}
+		st, err := store.NewStore(ctx, &conf)
+		if err != nil {
+			log.Fatalf("Error creating store: %v", err)
+		}
+		defer st.Close()
+
+		if all {
+			csInVms := doAll(st, ctx)
+			totalContainers := 0
+
+			for k, containers := range csInVms {
+				totalContainers += len(containers)
+				if print {
+					nameIp := strings.Split(k, "-")
+					printContainers(nameIp[0], nameIp[1], containers)
+				}
+			}
+			log.Info("Total VMs: %d Total Containers: %d\n", len(csInVms), totalContainers)
+			return
+		}
+
+		// Local containers
+		if len(args) == 0 {
+			containers := listLocalContainers()
+			printContainers("Localhost", "127.0.0.1", containers)
+			return
+		}
+		// remote containers
+		if len(args[0]) > 0 {
+			if !strings.HasPrefix(args[0], "ssh://") {
+				vm, err := getVMFromNATS(args[0], st, ctx)
+				if err != nil {
+					log.Fatalf("Error getting VM: %v", err)
+				}
+				sshHost := "ssh://" + user + "@" + utils.GetLocalIP(vm.IP)
+				containers := listRemoteContainers(st, sshHost, ctx)
+				printContainers(vm.Name, utils.GetLocalIP(vm.IP), containers)
+				return
+			}
+			containers := listRemoteContainers(st, args[0], ctx)
+			iphost := strings.Split(args[0], "@")
+			printContainers("Remote", iphost[1], containers)
+			return
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(csCmd)
-	csCmd.Flags().StringVarP(&sshHost, "ssh", "s", "", "SSH connection string")
+
 	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return containers in all nodes")
+	csCmd.Flags().BoolVarP(&print, "print", "p", false, "print containers to stdout")
 
 }
 
-func listContainers() {
+func listLocalContainers() []types.Container {
+	dc, err := dckr.NewDockerClient()
+	if err != nil {
+		log.Fatalf("Error creating Docker client: %v", err)
+	}
+	defer dc.Close()
+	containers, _ := dc.ListContainers()
+	return containers
+}
+
+func getVMFromNATS(hostname string, st *store.Store, ctx context.Context) (prxmx.Node, error) {
+	jvm, err := store.GetKV(ctx, hostname, bucketVMS, st.NatsConn)
+	if err != nil {
+		log.Fatalf("Error getting VM From NATS: %v %s %s", err, hostname, bucketVMS)
+	}
+	vm := prxmx.Node{}
+	err = json.Unmarshal(jvm, &vm)
+	return vm, err
+}
+
+func listRemoteContainers(st *store.Store, sshHost string, ctx context.Context) []types.Container {
 	var dc *dckr.DockerClient
 	var err error
-	if all {
-		doAll()
-		return
-	}
 
 	if sshHost != "" {
 		if !strings.HasPrefix(sshHost, "ssh://") {
-			// get host data from NATS
-			ctx := context.Background()
-			conf := getDefaultNatsConf()
-			st, err := store.NewStore(ctx, &conf)
-			if err != nil {
-				log.Fatalf("Error creating store: %v", err)
-			}
-			defer st.Close()
-
-			jvm, err := store.GetKV(ctx, sshHost, bucketVMS, st.NatsConn)
+			vm, err := getVMFromNATS(sshHost, st, ctx)
 			if err != nil {
 				log.Fatalf("Error getting VM: %v", err)
+				return []types.Container{}
 			}
-			vm := prxmx.Node{}
-			err = json.Unmarshal(jvm, &vm)
-			if err != nil {
-				log.Fatalf("Error unmarshalling VM: %v", err)
-			}
-			sshHost = "ssh://ivan@" + utils.GetLocalIP(vm.IP)
-
+			user := viper.GetString("ssh.user")
+			sshHost = "ssh://" + user + "@" + utils.GetLocalIP(vm.IP)
 		}
 		dc, err = dckr.NewDockerClientWithSSH(sshHost)
 		if err != nil {
-			fmt.Println("Error creating Docker client:", err)
-			return
+			log.Info("Error creating Docker client:", err, sshHost)
+			return []types.Container{}
 		}
-	} else {
-		dc, err = dckr.NewDockerClient()
+		defer dc.Close()
+		containers, err := dc.ListContainers()
 		if err != nil {
-			fmt.Println("Error creating Docker client:", err)
-			return
+			log.Info("Error listing containers:", err)
+			return []types.Container{}
 		}
+		return containers
 	}
-
-	defer dc.Close()
-	containers, err := dc.ListContainers()
-	if err != nil {
-		fmt.Println("Error listing containers:", err)
-		return
-	}
-	fmt.Println("Container ID \tName \t\tImage")
-	for _, container := range containers {
-		// Print container ID and name
-		fmt.Printf("%s \t%s \t%s\n", container.ID[:12], container.Names[0][1:], container.Image)
-	}
+	return []types.Container{}
 }
 
-func doAll() {
+func doAll(st *store.Store, ctx context.Context) map[string][]types.Container {
 	vms := []prxmx.Node{}
-	ctx := context.Background()
-	conf := getDefaultNatsConf()
-	st, err := store.NewStore(ctx, &conf)
-	if err != nil {
-		log.Fatalf("Error creating store: %v", err)
-	}
-	defer st.Close()
+	allContainers := make(map[string][]types.Container)
 	keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
 	for _, key := range keys {
-		jvm, err := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
+		vm, err := getVMFromNATS(key, st, ctx)
 		if err != nil {
 			log.Fatalf("Error getting VM: %v", err)
-		}
-		vm := prxmx.Node{}
-		err = json.Unmarshal(jvm, &vm)
-		if err != nil {
-			log.Fatalf("Error unmarshalling VM: %v", err)
+			continue
 		}
 		vms = append(vms, vm)
 	}
 	for _, vm := range vms {
 		if vm.Running {
-			containers := []types.Container{}
-			var err error
-
-			// get containers from NATS
-			cs, _ := store.GetKV(ctx, vm.Name, bucketContainers, st.NatsConn)
-
-			if len(cs) > 0 {
-				err = json.Unmarshal(cs, &containers)
-				if err != nil {
-					log.Fatalf("Error unmarshalling containers: %v", err)
-				}
-			} else {
-				containers, err = getRemoteContainers(vm)
-				if err != nil {
-					log.Fatalf("Error listing containers: %v", err)
-				}
-			}
-
-			printContainers(vm, containers)
-			if len(cs) == 0 {
+			log.Info("Processing VM", vm.Name, "IP", vm.IP)
+			user := viper.GetString("ssh.user")
+			sshHost := "ssh://" + user + "@" + utils.GetLocalIP(vm.IP)
+			containers := listRemoteContainers(st, sshHost, ctx)
+			if len(containers) > 0 {
 				saveContainers(ctx, vm, containers, st)
 			}
+			lip := vm.Name + "-" + utils.GetLocalIP(vm.IP)
+			allContainers[lip] = containers
 		}
 	}
-}
-
-func getRemoteContainers(vm prxmx.Node) ([]types.Container, error) {
-	dc, err := dckr.NewDockerClientWithSSH("ssh://ivan@" + utils.GetLocalIP(vm.IP))
-	if err != nil {
-		log.Fatalf("Error creating Docker client: %v", err)
-	}
-	defer dc.Close()
-	return dc.ListContainers()
+	return allContainers
 }
 
 func saveContainers(ctx context.Context, vm prxmx.Node, containers []types.Container, st *store.Store) {
@@ -202,7 +221,7 @@ func saveContainers(ctx context.Context, vm prxmx.Node, containers []types.Conta
 	}
 }
 
-func printContainers(vm prxmx.Node, containers []types.Container) {
+func printContainers(hostname, ip string, containers []types.Container) {
 
 	re := lipgloss.NewRenderer(os.Stdout)
 	baseStyle := re.NewStyle().Padding(0, 1)
@@ -217,7 +236,7 @@ func printContainers(vm prxmx.Node, containers []types.Container) {
 		Foreground(lipgloss.Color("#c6a0f1")).
 		Background(lipgloss.Color("#190e27")).
 		Width(120)
-	stop := styleTop.Render("VM: " + vm.Name + "\t\tIP: " + utils.GetLocalIP(vm.IP))
+	stop := styleTop.Render("VM: " + hostname + "\t\tIP: " + ip)
 
 	t := table.New().
 		Border(lipgloss.NormalBorder()).
@@ -230,10 +249,11 @@ func printContainers(vm prxmx.Node, containers []types.Container) {
 				return rowStyle
 			}
 		}).
-		Headers("ID", "Name", "Image", "Ports").Width(120)
+		Headers("ID", "Name", "Image", "Ports", "Days Old").Width(120)
 
 	for _, container := range containers {
-		t.Row(container.ID[:12], container.Names[0][1:], container.Image, dckr.PortsAsString(container.Ports))
+		daysOld := int(time.Since(time.Unix(container.Created, 0)).Hours() / 24)
+		t.Row(container.ID[:12], container.Names[0][1:], container.Image, dckr.PortsAsString(container.Ports), strconv.Itoa(daysOld))
 	}
 
 	group := lipgloss.JoinVertical(

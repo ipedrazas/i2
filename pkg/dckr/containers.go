@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 )
 
 func (dc *DockerClient) ListContainers() ([]types.Container, error) {
@@ -30,4 +31,20 @@ func PortsAsString(ports []types.Port) string {
 		portsString = append(portsString, fmt.Sprintf("%s:%d->%d/%s", port.IP, port.PublicPort, port.PrivatePort, port.Type))
 	}
 	return strings.Join(portsString, ", ")
+}
+
+// ListImages returns a list of all images on the Docker host
+func (dc *DockerClient) ListImages() ([]image.Summary, error) {
+	ctx := context.Background()
+	images, err := dc.cli.ImageList(ctx, image.ListOptions{All: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list images: %w", err)
+	}
+	return images, nil
+}
+
+func (dc *DockerClient) PullImage(img string) (io.ReadCloser, error) {
+	ctx := context.Background()
+	options := image.PullOptions{}
+	return dc.cli.ImagePull(ctx, img, options)
 }

@@ -1,6 +1,6 @@
 NAME		:= i2
 PACKAGE    	:= $(NAME)
-VERSION		?= v0.1.2
+VERSION		?= v0.1.5
 GIT_REV    ?= $(shell git rev-parse --short HEAD)
 LDFLAGS		?= "-X '${PACKAGE}/pkg/api.Version=${VERSION}' -X '${PACKAGE}/pkg/api.BuildDate=`date +%FT%T%z`' -X '${PACKAGE}/pkg/api.GitCommit=${GIT_REV}'"
 REPO_NAME	:= harbor.alacasa.uk/library
@@ -62,11 +62,8 @@ gen-docs:
 .PHONY: cron
 cron:
 	@echo "Running cron..."
-	@docker run -d --rm \
+	@docker run -d  \
+	-e TZ=Europe/London \
     -v /var/run/docker.sock:/var/run/docker.sock:ro \
-    --label ofelia.enabled=true \
-    --label ofelia.job-run.i2-sync-vms.schedule="@every 15m" \
-    --label ofelia.job-run.i2-sync-vms.image="harbor.alacasa.uk/library/i2:v0.1.2" \
-    --label ofelia.job-run.i2-sync-vms.volume="./docker/config.yaml:/i2/config.yaml:rw" \
-    --label ofelia.job-run.i2-sync-vms.command="vms -s" \
-        mcuadros/ofelia:latest daemon --docker 
+	-v /Users/ivan/workspace/github.ipedrazas/i2/docker/ofelia.ini:/etc/ofelia.ini \
+    	mcuadros/ofelia:latest daemon --config=/etc/ofelia.ini

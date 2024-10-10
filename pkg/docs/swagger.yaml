@@ -29,6 +29,32 @@ definitions:
       type:
         type: string
     type: object
+  prxmx.Node:
+    properties:
+      ip:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      running:
+        type: boolean
+      uptime:
+        $ref: '#/definitions/prxmx.Uptime'
+    type: object
+  prxmx.Uptime:
+    properties:
+      days:
+        type: integer
+      hours:
+        type: integer
+      minutes:
+        type: integer
+      raw:
+        type: integer
+      seconds:
+        type: integer
+    type: object
 info:
   contact:
     email: ipedrazas@gmail.com
@@ -163,4 +189,46 @@ paths:
           schema:
             type: object
       summary: Check if the service is ready
+  /proxmox/nodes:
+    get:
+      consumes:
+      - application/json
+      description: Get cluster nodes
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Get cluster nodes
+      tags:
+      - prxmx
+  /proxmox/vms:
+    get:
+      consumes:
+      - application/json
+      description: Get virtual machines
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/prxmx.Node'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            type: object
+      summary: Get virtual machines
+      tags:
+      - prxmx
 swagger: "2.0"

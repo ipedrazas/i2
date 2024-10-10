@@ -1,28 +1,26 @@
 package dns
 
 import (
-	"log"
-	"os"
-	"strings"
+	"i2/pkg/types"
 
 	"github.com/gin-gonic/gin"
 )
 
-func AddRoutes(api *gin.RouterGroup) {
-	service := NewDNSService()
-	Providers := os.Getenv("PROVIDERS")
-	providers := strings.Split(Providers, ",")
-	for _, provider := range providers {
-		switch provider {
-		case "gcp":
-			service.SetGCPProvider()
-		case "cloudflare":
-			service.SetCloudflareProvider()
-		default:
-			log.Fatalf("Invalid provider: %s", provider)
+func AddRoutes(api *gin.RouterGroup, config *types.Config) {
+	service := NewDNSService(config)
+
+	if config.GCP != (types.GCP{}) {
+		service.SetGCPProvider()
+		if config.GCP.IsDefault {
+			service.defaultProvider = "gcp"
 		}
 	}
-
+	if config.CloudFlare != (types.CloudFlare{}) {
+		service.SetCloudflareProvider()
+		if config.CloudFlare.IsDefault {
+			service.defaultProvider = "cloudflare"
+		}
+	}
 	// /dns/:zone/entries?provider=gcp
 	api.GET("/dns/:zone/entries", service.ListEntriesHandler)
 	api.POST("/dns/:zone/records", service.CreateRecordHandler)

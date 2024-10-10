@@ -3,9 +3,9 @@ package dns
 import (
 	"context"
 	"fmt"
+	"i2/pkg/types"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,12 +42,16 @@ type DNSRecord struct {
 
 // DNSService manages multiple DNS providers
 type DNSService struct {
-	providers map[string]DNSProvider
+	providers       map[string]DNSProvider
+	config          *types.Config
+	defaultProvider string
 }
 
-func NewDNSService() *DNSService {
+func NewDNSService(config *types.Config) *DNSService {
+
 	return &DNSService{
 		providers: make(map[string]DNSProvider),
+		config:    config,
 	}
 }
 
@@ -68,8 +72,10 @@ func (s *DNSService) ListEntriesHandler(c *gin.Context) {
 	// read the provider from the query params
 	qprov := c.Query("provider")
 	if qprov == "" {
-		qprov = os.Getenv("DEFAULT_PROVIDER")
+		qprov = s.defaultProvider
 	}
+	log.Printf("Listing entries for domain: %s, provider: %s", domain, qprov)
+	log.Printf("Providers: %v", s.providers)
 	provider, ok := s.providers[qprov]
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid provider"})
@@ -128,7 +134,7 @@ func (s *DNSService) ReadRecordHandler(c *gin.Context) {
 	id := c.Param("id")
 	qprov := c.Query("provider")
 	if qprov == "" {
-		qprov = os.Getenv("DEFAULT_PROVIDER")
+		qprov = s.defaultProvider
 	}
 	provider, ok := s.providers[qprov]
 	if !ok {
@@ -187,7 +193,7 @@ func (s *DNSService) DeleteRecordHandler(c *gin.Context) {
 	id := c.Param("id")
 	qprov := c.Query("provider")
 	if qprov == "" {
-		qprov = os.Getenv("DEFAULT_PROVIDER")
+		qprov = s.defaultProvider
 	}
 	provider, ok := s.providers[qprov]
 	if !ok {
@@ -230,22 +236,22 @@ func (s *DNSService) CheckIPUsageHandler(c *gin.Context) {
 
 func (s *DNSService) SetGCPProvider() {
 	ctx := context.Background()
-	projectId := os.Getenv("GCP_PROJECT_ID")
-	credentialsPath := os.Getenv("GCP_CREDENTIALS_PATH")
+	projectId := s.config.GCP.ProjectId
+	credentialsPath := s.config.GCP.CredentialsFile
 	gcpProvider, err := NewGCPProvider(ctx, projectId, credentialsPath)
 
 	if err != nil {
 		log.Fatalf("Failed to create GCP provider: %v", err)
 	}
-	s.AddProvider("GCP", gcpProvider)
+	s.AddProvider("gcp", gcpProvider)
 }
 
 func (s *DNSService) SetCloudflareProvider() {
-	apiToken := os.Getenv("CF_API_TOKEN")
+	apiToken := s.config.CloudFlare.ApiToken
 	cloudflareProvider, err := NewCloudflareProvider(apiToken)
 
 	if err != nil {
 		log.Fatalf("Failed to create Cloudflare provider: %v", err)
 	}
-	s.AddProvider("Cloudflare", cloudflareProvider)
+	s.AddProvider("cloudflare", cloudflareProvider)
 }

@@ -39,7 +39,7 @@ func (p *CloudflareProvider) ListEntries(domain string) ([]DNSEntry, error) {
 			Name:     record.Name,
 			Content:  record.Content,
 			TTL:      record.TTL,
-			Provider: "Cloudflare",
+			Provider: "cloudflare",
 		})
 	}
 

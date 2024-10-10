@@ -1,0 +1,6 @@
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    User ivan
+    Port 22
+    IdentityFile /home/appuser/.ssh/id_rsa
