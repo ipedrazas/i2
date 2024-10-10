@@ -2,8 +2,8 @@ package api
 
 import (
 	"i2/pkg/dns"
+	"i2/pkg/models"
 	"i2/pkg/prxmx"
-	"i2/pkg/types"
 
 	"github.com/gin-gonic/gin"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -12,7 +12,7 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 )
 
-func AddRoutes(router *gin.Engine, config *types.Config) {
+func AddRoutes(router *gin.Engine, config *models.Config) {
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	router.GET("/healtz/ready", Ready)

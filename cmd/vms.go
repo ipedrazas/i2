@@ -25,6 +25,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+
+	"i2/pkg/models"
 	"i2/pkg/prxmx"
 	"i2/pkg/store"
 	"i2/pkg/utils"
@@ -119,19 +121,15 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		bucket := viper.GetString("nats.bucket")
-		bucketVMS = bucket + "-vms"
-		bucketContainers = bucket + "-containers"
+		conf := readConfig()
+		bucketVMS = conf.Nats.Bucket + "-vms"
+		bucketContainers = conf.Nats.Bucket + "-containers"
 
-		proxmoxURL := viper.GetString("proxmox.url")
-		proxmoxUser := viper.GetString("proxmox.user")
-		proxmoxPass := viper.GetString("proxmox.pass")
-
-		cluster = prxmx.NewCluster(proxmoxURL, proxmoxUser, proxmoxPass)
+		cluster = prxmx.NewCluster(conf.Proxmox.URL, conf.Proxmox.User, conf.Proxmox.Pass)
 
 		ctx := context.Background()
-		conf := getDefaultNatsConf()
-		st, err := store.NewStore(ctx, &conf)
+
+		st, err := store.NewStore(ctx, &conf.Nats)
 		if err != nil {
 			log.Errorf("Error creating store: %v", err)
 		}
@@ -144,7 +142,7 @@ to quickly create a Cobra application.`,
 				log.Errorf("Error getting VMs: %v", err)
 			}
 			log.Info("%d VMs found\n", len(vms))
-			err = syncVMS(vms)
+			err = syncVMS(vms, conf)
 			if err != nil {
 				log.Errorf("Error syncing VMs: %v", err)
 			}
@@ -166,8 +164,8 @@ to quickly create a Cobra application.`,
 				log.Errorf("Error running spinner: %v", err)
 			}
 
-			if viper.GetBool("sync.enabled") || sync {
-				err = syncVMS(vms)
+			if conf.Sync.Enabled || sync {
+				err = syncVMS(vms, conf)
 				if err != nil {
 					log.Errorf("Error syncing VMs: %v", err)
 				}
@@ -213,22 +211,11 @@ func init() {
 	vmsCmd.Flags().BoolVarP(&sync, "sync", "s", false, "Sync VMs with NATS")
 }
 
-func getDefaultNatsConf() store.NatsConf {
-	return store.NatsConf{
-		Url:      viper.GetString("nats.url"),
-		User:     viper.GetString("nats.user"),
-		Password: viper.GetString("nats.password"),
-		Replicas: viper.GetInt("nats.replicas"),
-		Bucket:   viper.GetString("nats.bucket"),
-		Stream:   viper.GetString("nats.stream"),
-	}
-}
-
-func syncVMS(vms []prxmx.Node) error {
+func syncVMS(vms []prxmx.Node, conf *models.Config) error {
 	log.Info("Syncing VMs with NATS", bucketVMS)
-	conf := getDefaultNatsConf()
+
 	ctx := context.Background()
-	st, err := store.NewStore(ctx, &conf)
+	st, err := store.NewStore(ctx, &conf.Nats)
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"i2/pkg/docs"
-	"i2/pkg/types"
+	"i2/pkg/models"
 
 	logger "github.com/charmbracelet/log"
 )
@@ -32,7 +32,7 @@ var (
 	})
 )
 
-func RunServer(conf *types.Config) {
+func RunServer(conf *models.Config) {
 	addr := fmt.Sprintf(":%d", conf.Api.Port)
 	router := GinRouter(conf)
 	server := &http.Server{
@@ -77,7 +77,7 @@ func RunServer(conf *types.Config) {
 // @contact.email  ipedrazas@gmail.com
 // @license.name  MIT
 // @license.url   https://opensource.org/licenses/MIT
-func GinRouter(conf *types.Config) *gin.Engine {
+func GinRouter(conf *models.Config) *gin.Engine {
 	docs.SwaggerInfo.Title = "Ivan's Internal Platform API"
 	docs.SwaggerInfo.Description = "API to create, run and manage Applications."
 	docs.SwaggerInfo.Version = "v0.1.2"

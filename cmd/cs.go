@@ -64,18 +64,17 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		bucket := viper.GetString("nats.bucket")
-		bucketVMS = bucket + "-vms"
-		bucketContainers = bucket + "-containers"
-		user = viper.GetString("ssh.user")
+		conf := readConfig()
+		bucketVMS = conf.Nats.Bucket + "-vms"
+		bucketContainers = conf.Nats.Bucket + "-containers"
 
 		// get host data from NATS
 		ctx := context.Background()
-		conf := getDefaultNatsConf()
-		if conf.Url == "" {
+
+		if conf.Nats.URL == "" {
 			log.Fatalf("NATS_URL is not set")
 		}
-		st, err := store.NewStore(ctx, &conf)
+		st, err := store.NewStore(ctx, &conf.Nats)
 		if err != nil {
 			log.Fatalf("Error creating store: %v", err)
 		}

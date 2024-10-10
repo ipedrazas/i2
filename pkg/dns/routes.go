@@ -1,21 +1,21 @@
 package dns
 
 import (
-	"i2/pkg/types"
+	"i2/pkg/models"
 
 	"github.com/gin-gonic/gin"
 )
 
-func AddRoutes(api *gin.RouterGroup, config *types.Config) {
+func AddRoutes(api *gin.RouterGroup, config *models.Config) {
 	service := NewDNSService(config)
 
-	if config.GCP != (types.GCP{}) {
+	if config.GCP != (models.GCP{}) {
 		service.SetGCPProvider()
 		if config.GCP.IsDefault {
 			service.defaultProvider = "gcp"
 		}
 	}
-	if config.CloudFlare != (types.CloudFlare{}) {
+	if config.CloudFlare != (models.CloudFlare{}) {
 		service.SetCloudflareProvider()
 		if config.CloudFlare.IsDefault {
 			service.defaultProvider = "cloudflare"

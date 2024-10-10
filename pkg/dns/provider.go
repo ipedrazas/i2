@@ -3,7 +3,7 @@ package dns
 import (
 	"context"
 	"fmt"
-	"i2/pkg/types"
+	"i2/pkg/models"
 	"log"
 	"net/http"
 
@@ -43,11 +43,11 @@ type DNSRecord struct {
 // DNSService manages multiple DNS providers
 type DNSService struct {
 	providers       map[string]DNSProvider
-	config          *types.Config
+	config          *models.Config
 	defaultProvider string
 }
 
-func NewDNSService(config *types.Config) *DNSService {
+func NewDNSService(config *models.Config) *DNSService {
 
 	return &DNSService{
 		providers: make(map[string]DNSProvider),

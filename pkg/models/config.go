@@ -1,6 +1,12 @@
-package types
+package models
 
 import "time"
+
+type OnePassword struct {
+	CloudFlareToken string `mapstructure:"cloudflare"`
+	ProxmoxToken    string `mapstructure:"proxmox"`
+	NatsToken       string `mapstructure:"nats"`
+}
 
 type Config struct {
 	Proxmox     Proxmox     `mapstructure:"proxmox"`
@@ -11,6 +17,7 @@ type Config struct {
 	PushGateway PushGateway `mapstructure:"push_gateway"`
 	CloudFlare  CloudFlare  `mapstructure:"cloudflare"`
 	GCP         GCP         `mapstructure:"gcp"`
+	OnePassword OnePassword `mapstructure:"1password"`
 }
 
 type SSHConfig struct {
@@ -27,6 +34,7 @@ type Sync struct {
 	Timeout    time.Duration `mapstructure:"timeout"`
 	VMS        bool          `mapstructure:"vms"`
 	Containers bool          `mapstructure:"containers"`
+	Enabled    bool          `mapstructure:"enabled"`
 }
 
 type Api struct {

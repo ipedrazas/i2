@@ -4,21 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"i2/pkg/models"
 	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 )
-
-type NatsConf struct {
-	User     string
-	Password string
-	Url      string
-	Replicas int
-	Stream   string
-	Bucket   string
-}
 
 type Store struct {
 	NatsConn *nats.Conn
@@ -27,10 +19,10 @@ type Store struct {
 	Bucket   string
 }
 
-func NewStore(ctx context.Context, nconf *NatsConf) (*Store, error) {
+func NewStore(ctx context.Context, nconf *models.Nats) (*Store, error) {
 	conn, err := Connect(nconf)
 	if err != nil {
-		log.Errorf("error connecting to nats: %s, %v", nconf.Url, err)
+		log.Errorf("error connecting to nats: %s, %v", nconf.URL, err)
 		return nil, err
 	}
 	return &Store{
@@ -46,14 +38,14 @@ func (s *Store) Close() {
 	s.NatsConn.Close()
 }
 
-func Connect(nconf *NatsConf) (*nats.Conn, error) {
+func Connect(nconf *models.Nats) (*nats.Conn, error) {
 	if nconf == nil {
 		return nil, errors.New("NATS config is nil")
 	}
 	// nc, err := nats.Connect("connect.ngs.global", nats.UserCredentials("nats/creds/nats.creds"), nats.Name("Ivan Public Grid"))
-	nc, err := nats.Connect(nconf.Url, nats.Name("Ivan Homelab Grid"), nats.UserInfo(nconf.User, nconf.Password))
+	nc, err := nats.Connect(nconf.URL, nats.Name("Ivan Homelab Grid"), nats.UserInfo(nconf.User, nconf.Password))
 	if err != nil || nc == nil {
-		fmt.Println("Error connecting to NATS Cluster:", err, nconf.Url, nconf.User, nconf.Password)
+		fmt.Println("Error connecting to NATS Cluster:", err, nconf.URL, nconf.User, nconf.Password)
 		return nil, err
 	}
 	return nc, nil
