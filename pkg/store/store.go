@@ -17,6 +17,7 @@ type Store struct {
 	Replicas int
 	Ctx      context.Context
 	Bucket   string
+	Timeout  time.Duration
 }
 
 func NewStore(ctx context.Context, nconf *models.Nats) (*Store, error) {
@@ -25,25 +26,37 @@ func NewStore(ctx context.Context, nconf *models.Nats) (*Store, error) {
 		log.Errorf("error connecting to nats: %s, %v", nconf.URL, err)
 		return nil, err
 	}
+	timeout := time.Duration(nconf.Timeout) * time.Second
+	if nconf.Timeout == 0 {
+		timeout = 2 * time.Second
+	}
 	return &Store{
 		NatsConn: conn,
 		Replicas: nconf.Replicas,
 		Ctx:      ctx,
 		Bucket:   nconf.Bucket,
+		Timeout:  timeout,
 	}, nil
 
 }
 
 func (s *Store) Close() {
-	s.NatsConn.Close()
+	if s.NatsConn != nil {
+		s.NatsConn.Close()
+	}
 }
 
 func Connect(nconf *models.Nats) (*nats.Conn, error) {
 	if nconf == nil {
 		return nil, errors.New("NATS config is nil")
 	}
-	// nc, err := nats.Connect("connect.ngs.global", nats.UserCredentials("nats/creds/nats.creds"), nats.Name("Ivan Public Grid"))
-	nc, err := nats.Connect(nconf.URL, nats.Name("Ivan Homelab Grid"), nats.UserInfo(nconf.User, nconf.Password))
+	log.Info("Connect")
+	nc, err := nats.Connect(
+		nconf.URL,
+		nats.Name("Ivan Homelab Grid"),
+		nats.UserInfo(nconf.User, nconf.Password),
+		nats.Timeout(1*time.Second),
+	)
 	if err != nil || nc == nil {
 		fmt.Println("Error connecting to NATS Cluster:", err, nconf.URL, nconf.User, nconf.Password)
 		return nil, err
@@ -102,12 +115,10 @@ func GetKeys(ctx context.Context, bucket string, nc *nats.Conn) ([]string, error
 	if err != nil {
 		return nil, err
 	}
-
 	metadataKVStore, err := js.KeyValue(ctx, bucket)
 	if err != nil {
 		return nil, err
 	}
-
 	keys, err := metadataKVStore.Keys(ctx)
 	if err != nil {
 		return nil, err

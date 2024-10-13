@@ -25,11 +25,8 @@ import (
 	"context"
 	"i2/pkg/api"
 	"i2/pkg/models"
-	"i2/pkg/utils"
 
-	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // apiCmd represents the api command
@@ -43,45 +40,16 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		conf := readConfig()
-		api.RunServer(conf)
+		conf := models.NewConfig(
+			models.WithOnePassword(context.Background()),
+		)
+		if conf != nil {
+			api.RunServer(conf)
+		}
+
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(apiCmd)
-}
-
-func readConfig() *models.Config {
-	ctx := context.Background()
-	conf := &models.Config{}
-	err := viper.Unmarshal(conf)
-	if err != nil {
-		log.Errorf("unable to decode into config struct, %v", err)
-	}
-
-	key := conf.OnePassword.CloudFlareToken
-	cfToken, err := utils.ReadSecretFrom1Password(ctx, key)
-	if err != nil {
-		log.Errorf("unable to read Cloudflare token, %v", err)
-	}
-	conf.CloudFlare.ApiToken = cfToken
-
-	key = conf.OnePassword.ProxmoxToken
-	proxmoxToken, err := utils.ReadSecretFrom1Password(ctx, key)
-	if err != nil {
-		log.Errorf("unable to read proxmox token, %v", err)
-		panic(err)
-	}
-	conf.Proxmox.Pass = proxmoxToken
-
-	key = conf.OnePassword.NatsToken
-	natsToken, err := utils.ReadSecretFrom1Password(ctx, key)
-	if err != nil {
-		log.Errorf("unable to read NATS token, %v", err)
-		panic(err)
-	}
-	conf.Nats.Password = natsToken
-	log.Infof("config %v", conf)
-	return conf
 }

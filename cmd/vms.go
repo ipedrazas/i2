@@ -121,17 +121,20 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		conf := readConfig()
+		conf := models.NewConfig()
+		if conf == nil {
+			os.Exit(123)
+		}
 		bucketVMS = conf.Nats.Bucket + "-vms"
 		bucketContainers = conf.Nats.Bucket + "-containers"
 
 		cluster = prxmx.NewCluster(conf.Proxmox.URL, conf.Proxmox.User, conf.Proxmox.Pass)
-
 		ctx := context.Background()
 
 		st, err := store.NewStore(ctx, &conf.Nats)
-		if err != nil {
+		if err != nil || st == nil {
 			log.Errorf("Error creating store: %v", err)
+			return
 		}
 		defer st.Close()
 
@@ -171,6 +174,7 @@ to quickly create a Cobra application.`,
 				}
 			}
 		} else {
+			log.Infof("Reading from NATS: %v", keys)
 			for _, key := range keys {
 				jvm, err := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
 				if err != nil {

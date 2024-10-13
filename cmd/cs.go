@@ -27,6 +27,7 @@ import (
 	"fmt"
 
 	"i2/pkg/dckr"
+	"i2/pkg/models"
 	"i2/pkg/prxmx"
 	"i2/pkg/store"
 	"i2/pkg/utils"
@@ -64,7 +65,10 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		conf := readConfig()
+		conf := models.NewConfig()
+		if conf == nil {
+			os.Exit(123)
+		}
 		bucketVMS = conf.Nats.Bucket + "-vms"
 		bucketContainers = conf.Nats.Bucket + "-containers"
 
