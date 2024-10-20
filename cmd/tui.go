@@ -39,6 +39,14 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("tui called")
+		prompt := `
+		We need to create a TUI (terminal UI) using the library github.com/charmbracelet/bubbletea.
+		First, the TUI will show a spinner (github.com/charmbracelet/bubbles/spinner) while it loads the data (create a func called LoadData that returns 
+		[]prxmx.Node), once the data has been fetched, we will have a List with all the Nodes.
+		When selecting a node, we want to display all the containers in that node.
+		Wew should be able to select a container and show options like "show details", "logs", "exec".
+		`
+		fmt.Println(prompt)
 	},
 }
 

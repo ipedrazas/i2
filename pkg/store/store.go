@@ -21,15 +21,16 @@ type Store struct {
 }
 
 func NewStore(ctx context.Context, nconf *models.Nats) (*Store, error) {
-	conn, err := Connect(nconf)
-	if err != nil {
-		log.Errorf("error connecting to nats: %s, %v", nconf.URL, err)
-		return nil, err
-	}
 	timeout := time.Duration(nconf.Timeout) * time.Second
 	if nconf.Timeout == 0 {
 		timeout = 2 * time.Second
 	}
+	conn, err := Connect(nconf, timeout)
+	if err != nil {
+		log.Errorf("error connecting to nats: %s, %v", nconf.URL, err)
+		return nil, err
+	}
+
 	return &Store{
 		NatsConn: conn,
 		Replicas: nconf.Replicas,
@@ -46,7 +47,7 @@ func (s *Store) Close() {
 	}
 }
 
-func Connect(nconf *models.Nats) (*nats.Conn, error) {
+func Connect(nconf *models.Nats, timeout time.Duration) (*nats.Conn, error) {
 	if nconf == nil {
 		return nil, errors.New("NATS config is nil")
 	}
@@ -55,7 +56,7 @@ func Connect(nconf *models.Nats) (*nats.Conn, error) {
 		nconf.URL,
 		nats.Name("Ivan Homelab Grid"),
 		nats.UserInfo(nconf.User, nconf.Password),
-		nats.Timeout(1*time.Second),
+		nats.Timeout(timeout),
 	)
 	if err != nil || nc == nil {
 		fmt.Println("Error connecting to NATS Cluster:", err, nconf.URL, nconf.User, nconf.Password)

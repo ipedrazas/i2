@@ -144,8 +144,7 @@ to quickly create a Cobra application.`,
 			if err != nil {
 				log.Errorf("Error getting VMs: %v", err)
 			}
-			log.Info("%d VMs found\n", len(vms))
-			err = syncVMS(vms, conf)
+			err = saveVMSToNATS(vms, conf)
 			if err != nil {
 				log.Errorf("Error syncing VMs: %v", err)
 			}
@@ -167,8 +166,8 @@ to quickly create a Cobra application.`,
 				log.Errorf("Error running spinner: %v", err)
 			}
 
-			if conf.Sync.Enabled || sync {
-				err = syncVMS(vms, conf)
+			if conf.Sync.Enabled {
+				err = saveVMSToNATS(vms, conf)
 				if err != nil {
 					log.Errorf("Error syncing VMs: %v", err)
 				}
@@ -190,9 +189,9 @@ to quickly create a Cobra application.`,
 		}
 
 		if asTable {
-			getVMs(vms)
+			printVMsTable(vms)
 		} else {
-			getVMsList(vms)
+			runTeaVMsList(vms)
 			// get the IP of the selected VM
 			if selected != "" {
 				tokens := strings.Split(selected, "192")
@@ -215,7 +214,7 @@ func init() {
 	vmsCmd.Flags().BoolVarP(&sync, "sync", "s", false, "Sync VMs with NATS")
 }
 
-func syncVMS(vms []prxmx.Node, conf *models.Config) error {
+func saveVMSToNATS(vms []prxmx.Node, conf *models.Config) error {
 	log.Info("Syncing VMs with NATS", bucketVMS)
 
 	ctx := context.Background()
@@ -233,7 +232,7 @@ func syncVMS(vms []prxmx.Node, conf *models.Config) error {
 	return nil
 }
 
-func getVMsList(vms []prxmx.Node) {
+func runTeaVMsList(vms []prxmx.Node) {
 
 	items := []list.Item{}
 	running := 0
@@ -298,7 +297,7 @@ func (m model) View() string {
 	return docStyle.Render(m.list.View())
 }
 
-func getVMs(vms []prxmx.Node) {
+func printVMsTable(vms []prxmx.Node) {
 
 	running := 0
 
