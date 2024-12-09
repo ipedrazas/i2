@@ -51,6 +51,7 @@ var (
 	bucketContainers string
 	user             string
 	print            bool
+	live             bool
 )
 
 // csCmd represents the cs command
@@ -95,7 +96,7 @@ to quickly create a Cobra application.`,
 					printContainers(nameIp[0], nameIp[1], containers)
 				}
 			}
-			log.Info("Total VMs: %d Total Containers: %d\n", len(csInVms), totalContainers)
+			log.Infof("Total VMs: %d Total Containers: %d\n", len(csInVms), totalContainers)
 			return
 		}
 
@@ -130,7 +131,7 @@ func init() {
 
 	csCmd.Flags().BoolVarP(&all, "all", "a", false, "return containers in all nodes")
 	csCmd.Flags().BoolVarP(&print, "print", "p", false, "print containers to stdout")
-
+	csCmd.Flags().BoolVarP(&live, "live", "l", false, "live mode")
 }
 
 func listLocalContainers() []types.Container {
@@ -184,6 +185,9 @@ func listRemoteContainers(st *store.Store, sshHost string, ctx context.Context) 
 }
 
 func doAll(st *store.Store, ctx context.Context) map[string][]types.Container {
+	if !live {
+		return getCSFromNATS(ctx, st)
+	}
 	vms := []prxmx.Node{}
 	allContainers := make(map[string][]types.Container)
 	keys, _ := store.GetKeys(ctx, bucketVMS, st.NatsConn)
@@ -199,16 +203,44 @@ func doAll(st *store.Store, ctx context.Context) map[string][]types.Container {
 		if vm.Running {
 			log.Info("Processing VM", vm.Name, "IP", vm.IP)
 			user := viper.GetString("ssh.user")
-			sshHost := "ssh://" + user + "@" + utils.GetLocalIP(vm.IP)
+			lips := utils.GetLocalIP(vm.IP)
+			sshHost := "ssh://" + user + "@" + lips
 			containers := listRemoteContainers(st, sshHost, ctx)
 			if len(containers) > 0 {
 				saveContainers(ctx, vm, containers, st)
 			}
-			lip := vm.Name + "-" + utils.GetLocalIP(vm.IP)
+			lip := vm.Name + "-" + lips
 			allContainers[lip] = containers
 		}
 	}
 	return allContainers
+}
+
+func getCSFromNATS(ctx context.Context, st *store.Store) map[string][]types.Container {
+	keys, _ := store.GetKeys(ctx, bucketContainers, st.NatsConn)
+
+	containers := make(map[string][]types.Container)
+
+	for _, key := range keys {
+		log.Info("Processing container", key)
+		vmprxmx, _ := store.GetKV(ctx, key, bucketVMS, st.NatsConn)
+		var vm prxmx.Node
+		err := json.Unmarshal(vmprxmx, &vm)
+		if err != nil {
+			log.Fatalf("Error unmarshalling VM: %v", err)
+		}
+		vname := vm.Name + "-" + utils.GetLocalIP(vm.IP)
+
+		cs, _ := store.GetKV(ctx, key, bucketContainers, st.NatsConn)
+		var container []types.Container
+		err = json.Unmarshal(cs, &container)
+
+		if err != nil {
+			log.Fatalf("Error unmarshalling container: %v", err)
+		}
+		containers[vname] = container
+	}
+	return containers
 }
 
 func saveContainers(ctx context.Context, vm prxmx.Node, containers []types.Container, st *store.Store) {
